@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="tr" data-mode="normal">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pozometre">
+<meta name="theme-color" content="#0f0f0f">
+<link rel="manifest" href="meter-manifest.json">
+<title>Pozometre — Light Meter</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    const swPath = location.pathname.replace(/\/[^/]*$/, '/meter-sw.js');
+    navigator.serviceWorker.register(swPath).catch(()=>{});
+  });
+}
+</script>
+<style>
+:root {
+  --bg:      #0f0f0f;
+  --bg2:     #1a1a1a;
+  --bg3:     #242424;
+  --surface: #1e1e1e;
+  --border:  #2e2e2e;
+  --text:    #f0f0f0;
+  --text2:   #909090;
+  --text3:   #555;
+  --gold:    #d4a843;
+  --gold2:   #a07820;
+  --red:     #e05540;
+  --green:   #4caf6e;
+  --blue:    #5080d0;
+  --shadow:  0 4px 20px rgba(0,0,0,0.5);
+}
+
+html[data-mode="safe"] {
+  --bg: #080000; --bg2: #120000; --bg3: #1a0000; --surface: #150000;
+  --border: #3a0800; --text: #ff3311; --text2: #cc2200; --text3: #661100;
+  --gold: #cc2200; --gold2: #881100; --red: #ff3311; --green: #881100; --blue: #661100;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.app-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  color: var(--text);
+}
+
+.app-name span { color: var(--gold); }
+
+.topbar-right { display: flex; gap: 8px; align-items: center; }
+
+.icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  -webkit-user-select: none;
+}
+
+.icon-btn:active { transform: scale(0.92); }
+.icon-btn.safe-active { background: #3a0000; border-color: #cc2200; color: #ff3311; }
+
+/* ── CAMERA SECTION ── */
+.camera-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #000;
+  overflow: hidden;
+}
+
+video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.camera-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+
+/* Spot metering circle */
+.spot-circle {
+  width: 80px; height: 80px;
+  border: 2px solid rgba(255,255,255,0.7);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+  position: relative;
+}
+
+.spot-circle::before, .spot-circle::after {
+  content: '';
+  position: absolute;
+  background: rgba(255,255,255,0.6);
+}
+.spot-circle::before { width: 1px; height: 20px; top: -26px; left: 50%; transform: translateX(-50%); }
+.spot-circle::after  { width: 20px; height: 1px; left: -26px; top: 50%; transform: translateY(-50%); }
+
+/* EV overlay on camera */
+.ev-overlay {
+  position: absolute;
+  top: 12px; left: 12px;
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 8px 14px;
+  backdrop-filter: blur(4px);
+}
+
+.ev-overlay-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 32px;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.ev-overlay-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+}
+
+/* Exposure bar overlay */
+.expo-bar-wrap {
+  position: absolute;
+  bottom: 16px; left: 16px; right: 16px;
+}
+
+.expo-bar-track {
+  height: 4px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+  position: relative;
+}
+
+.expo-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--blue), var(--green), var(--gold), var(--red));
+  transition: width 0.3s ease;
+}
+
+.expo-bar-center {
+  position: absolute;
+  top: -3px; left: 50%;
+  transform: translateX(-50%);
+  width: 2px; height: 10px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 1px;
+}
+
+.expo-marker {
+  position: absolute;
+  top: -6px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: white;
+  transform: translateX(-50%);
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+.expo-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.1em;
+}
+
+/* Camera placeholder */
+.camera-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px;
+  background: var(--bg2);
+}
+
+.camera-placeholder .icon { font-size: 48px; opacity: 0.3; }
+.camera-placeholder p { font-size: 12px; color: var(--text3); letter-spacing: 0.1em; text-align: center; padding: 0 30px; line-height: 1.6; }
+
+.start-camera-btn {
+  padding: 12px 28px;
+  background: var(--gold2);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+}
+
+/* ── MODE TABS ── */
+.mode-tabs {
+  display: flex;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 11px 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+html[data-mode="safe"] .mode-tab.active { color: var(--red); border-bottom-color: var(--red); }
+
+/* ── CONTENT ── */
+.content { padding: 16px; padding-bottom: 80px; }
+
+.mode-page { display: none; }
+.mode-page.active { display: block; }
+
+/* ── EV DISPLAY ── */
+.ev-main {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.ev-number {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 72px;
+  color: var(--gold);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 30px rgba(212,168,67,0.3);
+}
+
+.ev-number small { font-size: 22px; color: var(--text3); }
+.ev-sub { font-size: 10px; letter-spacing: 0.25em; color: var(--text3); text-transform: uppercase; margin-top: 4px; }
+.ev-scene { font-size: 12px; color: var(--text2); margin-top: 8px; letter-spacing: 0.08em; }
+
+/* ── ISO SELECTOR ── */
+.iso-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.iso-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg3);
+  color: var(--text2);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-user-select: none;
+}
+
+.iso-btn.active {
+  background: var(--gold2);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+html[data-mode="safe"] .iso-btn.active { background: #660000; border-color: var(--red); color: var(--red); }
+
+/* ── CARD ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-label {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 12px;
+}
+
+/* ── SLIDER ── */
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.param-label { font-size: 11px; color: var(--text2); min-width: 70px; }
+
+input[type="range"] {
+  flex: 1;
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  outline: none;
+  border: none;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.param-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  color: var(--text);
+  min-width: 70px;
+  text-align: right;
+  letter-spacing: 0.05em;
+}
+
+/* ── RESULTS GRID ── */
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.result-cell {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.result-cell.highlight {
+  border-color: var(--gold);
+  background: rgba(212,168,67,0.08);
+}
+
+html[data-mode="safe"] .result-cell.highlight {
+  border-color: var(--red);
+  background: rgba(204,34,0,0.1);
+}
+
+.rc-label { font-size: 9px; letter-spacing: 0.2em; color: var(--text3); text-transform: uppercase; margin-bottom: 5px; }
+.rc-val { font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: var(--text); line-height: 1; }
+.rc-val small { font-size: 12px; color: var(--text3); }
+.rc-note { font-size: 9px; color: var(--text3); margin-top: 3px; }
+
+/* ── EXPOSURE TABLE ── */
+.expo-table { width:100%; border-collapse:collapse; }
+.expo-table td { padding:8px 6px; border-bottom:1px solid var(--border); font-size:12px; }
+.expo-table td:first-child { color: var(--text3); font-size:11px; }
+.expo-table td:last-child { color: var(--text); text-align:right; font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:0.05em; }
+.expo-table tr.optimal td { color: var(--gold); }
+.expo-table tr:last-child td { border-bottom: none; }
+
+html[data-mode="safe"] .expo-table tr.optimal td { color: var(--red); }
+
+/* ── ZONE SYSTEM ── */
+.zone-strip {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  gap: 2px;
+  margin: 12px 0;
+}
+
+.zone-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+  font-size: 8px;
+  font-weight: 500;
+  position: relative;
+  border: 1.5px solid transparent;
+  transition: border-color 0.3s;
+}
+
+.zone-cell.active-zone {
+  border-color: var(--gold);
+  box-shadow: 0 0 8px rgba(212,168,67,0.4);
+}
+
+html[data-mode="safe"] .zone-cell.active-zone { border-color: var(--red); }
+
+.zone-desc {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.zone-desc-cell {
+  font-size: 7px;
+  text-align: center;
+  color: var(--text3);
+  line-height: 1.3;
+  padding: 2px 1px;
+}
+
+.zone-info {
+  background: var(--bg3);
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text2);
+}
+
+.zone-info strong { color: var(--text); }
+
+/* ── BOTTOM MEASURE BTN ── */
+.measure-btn-wrap {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  z-index: 50;
+}
+
+.measure-btn {
+  width: 100%;
+  padding: 15px;
+  background: var(--gold2);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.measure-btn.measuring {
+  background: var(--green);
+  animation: measure-pulse 1s ease-in-out infinite;
+}
+
+@keyframes measure-pulse {
+  0%,100% { background: var(--green); }
+  50%      { background: #3a9a58; }
+}
+
+html[data-mode="safe"] .measure-btn { background: #660000; }
+html[data-mode="safe"] .measure-btn.measuring { background: #880000; }
+
+.measure-btn:active { transform: scale(0.98); }
+
+/* ── MISC ── */
+select, input[type="number"] {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  width: 100%;
+  appearance: none;
+  min-height: 44px;
+}
+
+select:focus, input[type="number"]:focus { outline: none; border-color: var(--gold); }
+select option { background: var(--bg2); }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { margin-bottom: 12px; }
+label { display:block; font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--text3); margin-bottom:6px; }
+.divider { height:1px; background:var(--border); margin:12px 0; }
+
+/* Metering mode selector */
+.meter-modes {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.meter-mode-btn {
+  flex: 1;
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg3);
+  color: var(--text3);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+}
+
+.meter-mode-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(212,168,67,0.08);
+}
+
+html[data-mode="safe"] .meter-mode-btn.active { border-color:var(--red); color:var(--red); background:rgba(204,34,0,0.08); }
+
+.locked-badge {
+  display: inline-block;
+  background: var(--green);
+  color: #fff;
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-left: 8px;
+}
+
+html[data-mode="safe"] .locked-badge { background: var(--red2, #881100); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="app-name">Poz<span>ometre</span></div>
+  <div class="topbar-right">
+    <button class="icon-btn" onclick="toggleCamera()" title="Kamerayı Aç/Kapat" id="camBtn">📷</button>
+    <button class="icon-btn" onclick="toggleSafe()" id="safeBtn" title="Safelight">🔴</button>
+  </div>
+</div>
+
+<!-- CAMERA -->
+<div class="camera-wrap" id="cameraWrap">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" style="display:none"></canvas>
+
+  <!-- Hidden placeholder -->
+  <div class="camera-placeholder" id="camPlaceholder">
+    <div class="icon">📷</div>
+    <p>Işık ölçümü için kamerayı aç.<br>Telefonu sahneye doğrult, ölç butonuna bas.</p>
+    <button class="start-camera-btn" onclick="startCamera()">Kamerayı Aç</button>
+  </div>
+
+  <!-- Camera live overlays -->
+  <div class="camera-overlay" id="camOverlay" style="display:none">
+    <div class="spot-circle"></div>
+  </div>
+
+  <div class="ev-overlay" id="evOverlay" style="display:none">
+    <div class="ev-overlay-val" id="evOverlayVal">—</div>
+    <div class="ev-overlay-label">EV</div>
+  </div>
+
+  <div class="expo-bar-wrap" id="expoBarWrap" style="display:none">
+    <div class="expo-bar-track">
+      <div class="expo-bar-fill" id="expoFill" style="width:50%"></div>
+      <div class="expo-bar-center"></div>
+      <div class="expo-marker" id="expoMarker" style="left:50%"></div>
+    </div>
+    <div class="expo-labels">
+      <span>— karanlık</span><span>ideal</span><span>aşık +</span>
+    </div>
+  </div>
+</div>
+
+<!-- MODE TABS -->
+<div class="mode-tabs">
+  <button class="mode-tab active" onclick="switchMode('av',this)">Av</button>
+  <button class="mode-tab" onclick="switchMode('tv',this)">Tv</button>
+  <button class="mode-tab" onclick="switchMode('manuel',this)">Manuel</button>
+  <button class="mode-tab" onclick="switchMode('zone',this)">Zone</button>
+</div>
+
+<div class="content">
+
+  <!-- EV + ISO (shared) -->
+  <div class="ev-main">
+    <div class="ev-number" id="evDisplay">—<small> EV</small></div>
+    <div class="ev-sub">Işık Değeri</div>
+    <div class="ev-scene" id="evScene">Ölçüm bekleniyor</div>
+  </div>
+
+  <!-- ISO -->
+  <div class="card">
+    <div class="card-label">ISO Seçimi</div>
+    <div class="iso-row" id="isoRow">
+      <button class="iso-btn" onclick="setISO(25,this)">25</button>
+      <button class="iso-btn" onclick="setISO(50,this)">50</button>
+      <button class="iso-btn" onclick="setISO(100,this)">100</button>
+      <button class="iso-btn active" onclick="setISO(400,this)">400</button>
+      <button class="iso-btn" onclick="setISO(800,this)">800</button>
+      <button class="iso-btn" onclick="setISO(1600,this)">1600</button>
+      <button class="iso-btn" onclick="setISO(3200,this)">3200</button>
+    </div>
+    <!-- Metering mode -->
+    <div class="card-label" style="margin-top:4px">Ölçüm Modu</div>
+    <div class="meter-modes">
+      <button class="meter-mode-btn active" onclick="setMeterMode('matrix',this)">Matris</button>
+      <button class="meter-mode-btn" onclick="setMeterMode('center',this)">Merkez</button>
+      <button class="meter-mode-btn" onclick="setMeterMode('spot',this)">Spot</button>
+    </div>
+  </div>
+
+  <!-- ── MODE: Av ── -->
+  <div class="mode-page active" id="pg-av">
+    <div class="card">
+      <div class="card-label">Diyafram Öncelikli — Av Modu</div>
+      <div class="param-row">
+        <div class="param-label">Diyafram</div>
+        <input type="range" id="avAperture" min="0" max="10" value="4" oninput="calcAv()">
+        <div class="param-val" id="avApertureVal">f/5.6</div>
+      </div>
+      <div class="card-label">Perde Süresi Önerileri</div>
+      <table class="expo-table" id="avTable">
+        <tr><td colspan="2" style="text-align:center;color:var(--text3);font-size:12px">Önce ölçüm yapın</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── MODE: Tv ── -->
+  <div class="mode-page" id="pg-tv">
+    <div class="card">
+      <div class="card-label">Perde Öncelikli — Tv Modu</div>
+      <div class="param-row">
+        <div class="param-label">Perde</div>
+        <input type="range" id="tvShutter" min="0" max="14" value="7" oninput="calcTv()">
+        <div class="param-val" id="tvShutterVal">1/125</div>
+      </div>
+      <div class="card-label">Diyafram Önerileri</div>
+      <table class="expo-table" id="tvTable">
+        <tr><td colspan="2" style="text-align:center;color:var(--text3);font-size:12px">Önce ölçüm yapın</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── MODE: Manuel ── -->
+  <div class="mode-page" id="pg-manuel">
+    <div class="card">
+      <div class="card-label">Manuel Mod — ISO Önerisi</div>
+      <div class="row2">
+        <div class="field">
+          <label>Diyafram</label>
+          <select id="manAperture" onchange="calcManuel()">
+            <option value="1">f/1.0</option>
+            <option value="1.4">f/1.4</option>
+            <option value="2">f/2</option>
+            <option value="2.8">f/2.8</option>
+            <option value="4">f/4</option>
+            <option value="5.6" selected>f/5.6</option>
+            <option value="8">f/8</option>
+            <option value="11">f/11</option>
+            <option value="16">f/16</option>
+            <option value="22">f/22</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Perde Süresi</label>
+          <select id="manShutter" onchange="calcManuel()">
+            <option value="1000">1/1000</option>
+            <option value="500">1/500</option>
+            <option value="250">1/250</option>
+            <option value="125" selected>1/125</option>
+            <option value="60">1/60</option>
+            <option value="30">1/30</option>
+            <option value="15">1/15</option>
+            <option value="8">1/8</option>
+            <option value="4">1/4</option>
+            <option value="2">1/2</option>
+            <option value="1s">1"</option>
+          </select>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div id="manResult" style="text-align:center;color:var(--text3);font-size:12px;padding:10px">
+        Önce ölçüm yapın
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODE: Zone ── -->
+  <div class="mode-page" id="pg-zone">
+    <div class="card">
+      <div class="card-label">Zone System — Ansel Adams</div>
+      <div class="zone-strip" id="zoneStrip"></div>
+      <div class="zone-desc" id="zoneDesc"></div>
+      <div class="zone-info" id="zoneInfo">
+        Ölçüm yapıldıktan sonra sahnenin hangi zonlara düştüğü gösterilecek.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Zone Pozlama Stratejisi</div>
+      <div id="zoneStrategy" style="font-size:12px;color:var(--text2);line-height:1.9">
+        Ölçüm bekleniyor…
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- MEASURE BUTTON -->
+<div class="measure-btn-wrap">
+  <button class="measure-btn" id="measureBtn" onclick="doMeasure()">
+    <span>⬤</span> Ölç
+  </button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let currentEV = null;
+let currentISO = 400;
+let meterMode = 'matrix'; // matrix, center, spot
+let stream = null;
+let cameraActive = false;
+let isMeasuring = false;
+let safeMode = false;
+let currentMode = 'av';
+let lockedEV = null;
+
+// ═══════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════
+const APERTURES = [1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32];
+const SHUTTERS  = [2000, 1000, 500, 250, 125, 60, 30, 15, 8, 4, 2, 1, 0.5, 0.25, 0.125];
+const SHUTTER_LABELS = ['1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1"','2"','4"','8"'];
+
+const EV_SCENES = [
+  { min:-2, max:1,  label:'Kendi ışığıyla yanan mum' },
+  { min:1,  max:3,  label:'Loş iç mekan — gece lambası' },
+  { min:3,  max:5,  label:'İç mekan, normal aydınlatma' },
+  { min:5,  max:7,  label:'Karanlık bina içi, pencere ışığı' },
+  { min:7,  max:9,  label:'Gölgeli dış mekan — bulutlu' },
+  { min:9,  max:11, label:'Açık gölge — güneşli gün' },
+  { min:11, max:13, label:'Güneşli gün — gölgeli yüzey' },
+  { min:13, max:15, label:'Tam güneş ışığı' },
+  { min:15, max:18, label:'Çok parlak — kar, kum, su yansıması' },
+];
+
+const ZONE_COLORS = [
+  '#000000','#1a1a1a','#333333','#4d4d4d','#666666',
+  '#808080','#999999','#b3b3b3','#cccccc','#e6e6e6','#ffffff'
+];
+
+const ZONE_NAMES = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X'];
+
+const ZONE_DESCS = [
+  'Siyah','Derin\ngölge','Gölge\ndetay','Koyu\ngri','Orta\nkoyu',
+  'Orta\ngri','Açık\ngri','Işıklı\nbölge','Beyaza\nyakın','Neredeyse\nbeyaz','Beyaz'
+];
+
+// ═══════════════════════════════════════════════
+//  SAFELIGHT
+// ═══════════════════════════════════════════════
+function toggleSafe() {
+  safeMode = !safeMode;
+  document.documentElement.setAttribute('data-mode', safeMode ? 'safe' : 'normal');
+  document.getElementById('safeBtn').classList.toggle('safe-active', safeMode);
+}
+
+// ═══════════════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════════════
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    cameraActive = true;
+    document.getElementById('camPlaceholder').style.display = 'none';
+    document.getElementById('camOverlay').style.display = 'flex';
+    document.getElementById('evOverlay').style.display = 'block';
+    document.getElementById('expoBarWrap').style.display = 'block';
+    document.getElementById('camBtn').textContent = '⏹';
+
+    // Live metering loop
+    startLiveMetering();
+  } catch(e) {
+    alert('Kamera erişimi reddedildi. Tarayıcı ayarlarından kamera iznini ver.');
+  }
+}
+
+function toggleCamera() {
+  if (cameraActive) stopCamera();
+  else startCamera();
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  cameraActive = false;
+  document.getElementById('camPlaceholder').style.display = 'flex';
+  document.getElementById('camOverlay').style.display = 'none';
+  document.getElementById('evOverlay').style.display = 'none';
+  document.getElementById('expoBarWrap').style.display = 'none';
+  document.getElementById('camBtn').textContent = '📷';
+}
+
+let liveInterval = null;
+
+function startLiveMetering() {
+  if (liveInterval) clearInterval(liveInterval);
+  liveInterval = setInterval(() => {
+    if (!cameraActive) return;
+    const ev = measureFromCamera(false);
+    if (ev !== null) {
+      document.getElementById('evOverlayVal').textContent = ev.toFixed(1);
+      updateExpoBar(ev);
+    }
+  }, 300);
+}
+
+function measureFromCamera(precise) {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  if (!video.videoWidth) return null;
+
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+
+  let imageData;
+  const w = canvas.width, h = canvas.height;
+
+  if (meterMode === 'spot') {
+    // Center 15% spot
+    const sw = Math.round(w * 0.15), sh = Math.round(h * 0.15);
+    const sx = Math.round((w - sw) / 2), sy = Math.round((h - sh) / 2);
+    imageData = ctx.getImageData(sx, sy, sw, sh);
+  } else if (meterMode === 'center') {
+    // Center 40%
+    const sw = Math.round(w * 0.4), sh = Math.round(h * 0.4);
+    const sx = Math.round((w - sw) / 2), sy = Math.round((h - sh) / 2);
+    imageData = ctx.getImageData(sx, sy, sw, sh);
+  } else {
+    // Matrix — full frame with weighted center
+    imageData = ctx.getImageData(0, 0, w, h);
+  }
+
+  // Calculate luminance
+  const data = imageData.data;
+  let totalLum = 0, count = 0;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    // Relative luminance (ITU-R BT.709)
+    const lum = 0.2126 * (r/255) + 0.7152 * (g/255) + 0.0722 * (b/255);
+    totalLum += lum;
+    count++;
+  }
+
+  const avgLum = count > 0 ? totalLum / count : 0.18;
+  const safeLum = Math.max(avgLum, 0.0001);
+
+  // Convert luminance to EV (ISO 100 base)
+  // EV = log2(L * 312.5) for ISO 100 calibration
+  const evBase = Math.log2(safeLum * 312.5);
+
+  // Adjust for ISO
+  const evISO = evBase + Math.log2(currentISO / 100);
+
+  return Math.round(evISO * 2) / 2; // round to 0.5 stops
+}
+
+function updateExpoBar(ev) {
+  // Map EV -2 to 18 → 0% to 100%
+  const pct = Math.max(0, Math.min(100, ((ev + 2) / 20) * 100));
+  document.getElementById('expoMarker').style.left = pct + '%';
+}
+
+// ═══════════════════════════════════════════════
+//  MEASURE
+// ═══════════════════════════════════════════════
+function doMeasure() {
+  const btn = document.getElementById('measureBtn');
+
+  if (!cameraActive) {
+    startCamera().then(() => { setTimeout(doMeasure, 800); });
+    return;
+  }
+
+  btn.classList.add('measuring');
+  btn.innerHTML = '<span>◉</span> Ölçülüyor…';
+  isMeasuring = true;
+
+  // Take 3 samples and average for precision
+  setTimeout(() => {
+    const samples = [];
+    for (let i = 0; i < 3; i++) {
+      const v = measureFromCamera(true);
+      if (v !== null) samples.push(v);
+    }
+
+    if (samples.length === 0) {
+      btn.classList.remove('measuring');
+      btn.innerHTML = '<span>⬤</span> Ölç';
+      alert('Ölçüm yapılamadı. Kamera görüntüsü kontrol edin.');
+      return;
+    }
+
+    const ev = samples.reduce((a,b) => a+b, 0) / samples.length;
+    currentEV = Math.round(ev * 2) / 2;
+    lockedEV = currentEV;
+
+    btn.classList.remove('measuring');
+    btn.innerHTML = '<span>⬤</span> Tekrar Ölç';
+    isMeasuring = false;
+
+    updateAllDisplays();
+  }, 600);
+}
+
+// ═══════════════════════════════════════════════
+//  DISPLAY UPDATES
+// ═══════════════════════════════════════════════
+function updateAllDisplays() {
+  if (currentEV === null) return;
+
+  // EV display
+  document.getElementById('evDisplay').innerHTML = `${currentEV.toFixed(1)}<small> EV</small>`;
+  document.getElementById('evOverlayVal').textContent = currentEV.toFixed(1);
+
+  // Scene description
+  const scene = EV_SCENES.find(s => currentEV >= s.min && currentEV < s.max);
+  document.getElementById('evScene').textContent = scene ? scene.label : (currentEV < 0 ? 'Çok karanlık' : 'Çok parlak');
+
+  calcAv();
+  calcTv();
+  calcManuel();
+  updateZone();
+}
+
+// EV100 from camera EV (ISO-adjusted)
+function getEV100() {
+  if (currentEV === null) return null;
+  return currentEV - Math.log2(currentISO / 100);
+}
+
+// Exposure value for given aperture, shutter (EV = log2(N²/t))
+function computeEV(aperture, shutter) {
+  return Math.log2((aperture * aperture) / (1 / shutter));
+}
+
+// Find shutter for given aperture + EV
+function shutterFromApertureEV(aperture, ev) {
+  // EV = log2(N²/t) → t = N²/2^EV
+  return (aperture * aperture) / Math.pow(2, ev);
+}
+
+// Find aperture for given shutter + EV
+function apertureFromShutterEV(shutter, ev) {
+  return Math.sqrt(Math.pow(2, ev) / shutter);
+}
+
+function formatShutter(t) {
+  if (t >= 1) return t.toFixed(1) + '"';
+  const denom = Math.round(1 / t);
+  return '1/' + denom;
+}
+
+function formatAperture(f) {
+  if (f < 10) return 'f/' + f.toFixed(1);
+  return 'f/' + Math.round(f);
+}
+
+// ── Av MODE ──
+const AV_APERTURE_VALS = [1,1.4,2,2.8,4,5.6,8,11,16,22,32];
+
+function calcAv() {
+  const idx = parseInt(document.getElementById('avAperture').value);
+  const aperture = AV_APERTURE_VALS[idx];
+  document.getElementById('avApertureVal').textContent = formatAperture(aperture);
+
+  if (currentEV === null) return;
+
+  const ev = currentEV;
+  const optShutter = shutterFromApertureEV(aperture, ev);
+
+  // Build table: ±2 stops of aperture variation
+  let html = '';
+  const apertureStops = [-2,-1,0,1,2];
+  apertureStops.forEach(stop => {
+    const a = aperture * Math.pow(Math.sqrt(2), stop);
+    const s = shutterFromApertureEV(a, ev);
+    const isOpt = stop === 0;
+    const sLabel = formatShutter(s);
+    const aLabel = formatAperture(a);
+    const warn = s < 1/1000 ? ' ⚡' : s > 1 ? ' 🎯 tripod' : '';
+    html += `<tr class="${isOpt?'optimal':''}">
+      <td>${aLabel}${isOpt?' ◀ seçili':''}</td>
+      <td>${sLabel}${warn}</td>
+    </tr>`;
+  });
+  document.getElementById('avTable').innerHTML = html;
+}
+
+// ── Tv MODE ──
+const TV_SHUTTER_VALS = [1/2000,1/1000,1/500,1/250,1/125,1/60,1/30,1/15,1/8,1/4,1/2,1,2,4,8];
+const TV_SHUTTER_LABELS = ['1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1"','2"','4"','8"'];
+
+function calcTv() {
+  const idx = parseInt(document.getElementById('tvShutter').value);
+  const shutter = TV_SHUTTER_VALS[idx];
+  document.getElementById('tvShutterVal').textContent = TV_SHUTTER_LABELS[idx];
+
+  if (currentEV === null) return;
+
+  const ev = currentEV;
+
+  let html = '';
+  const shutterStops = [-2,-1,0,1,2];
+  shutterStops.forEach(stop => {
+    const s = shutter * Math.pow(2, stop);
+    const a = apertureFromShutterEV(s, ev);
+    const isOpt = stop === 0;
+    const aLabel = formatAperture(a);
+    const sLabel = formatShutter(s);
+    const warn = a < 1 ? ' ⚠ çok geniş' : a > 22 ? ' ⚠ kırınım' : '';
+    html += `<tr class="${isOpt?'optimal':''}">
+      <td>${sLabel}${isOpt?' ◀ seçili':''}</td>
+      <td>${aLabel}${warn}</td>
+    </tr>`;
+  });
+  document.getElementById('tvTable').innerHTML = html;
+}
+
+// ── Manuel MODE ──
+function calcManuel() {
+  if (currentEV === null) {
+    document.getElementById('manResult').innerHTML = '<span style="color:var(--text3)">Önce ölçüm yapın</span>';
+    return;
+  }
+
+  const aperture = parseFloat(document.getElementById('manAperture').value);
+  const shutterStr = document.getElementById('manShutter').value;
+  const shutter = shutterStr === '1s' ? 1 : 1 / parseInt(shutterStr);
+  const selectedEV = computeEV(aperture, shutter);
+  const diff = selectedEV - currentEV;
+  const diffStops = Math.round(diff * 2) / 2;
+
+  let status, color;
+  if (Math.abs(diffStops) < 0.25)      { status = '✓ Doğru poz'; color = 'var(--green)'; }
+  else if (diffStops > 0)              { status = `+${diffStops.toFixed(1)} stop AŞIK — diyaframı kapat veya perdeyi hızlandır`; color = 'var(--red)'; }
+  else                                 { status = `${diffStops.toFixed(1)} stop EKSİK — diyaframı aç veya perdeyi yavaşlat`; color = 'var(--blue)'; }
+
+  // Recommended ISOs
+  const recISOs = [25,50,100,200,400,800,1600,3200,6400].filter(iso => {
+    const evAdj = currentEV + Math.log2(iso/100) - Math.log2(currentISO/100);
+    const d = computeEV(aperture, shutter) - evAdj;
+    return Math.abs(d) < 0.4;
+  });
+
+  document.getElementById('manResult').innerHTML = `
+    <div style="font-size:15px;color:${color};margin-bottom:10px;letter-spacing:0.05em">${status}</div>
+    <div style="font-size:11px;color:var(--text3)">
+      Seçilen EV: <strong style="color:var(--text)">${selectedEV.toFixed(1)}</strong> &nbsp;|&nbsp;
+      Sahne EV: <strong style="color:var(--text)">${currentEV.toFixed(1)}</strong>
+    </div>
+    ${recISOs.length ? `<div style="font-size:11px;color:var(--text2);margin-top:8px">
+      Bu kombinasyon için uygun ISO: <strong style="color:var(--gold)">${recISOs.join(', ')}</strong>
+    </div>` : ''}
+  `;
+}
+
+// ── ZONE SYSTEM ──
+function updateZone() {
+  if (currentEV === null) return;
+
+  // Zone V = middle grey = metered EV
+  // Each zone = 1 stop
+  const zoneV_EV = currentEV;
+
+  // Build zone strip
+  const strip = document.getElementById('zoneStrip');
+  const desc  = document.getElementById('zoneDesc');
+  strip.innerHTML = '';
+  desc.innerHTML  = '';
+
+  for (let z = 0; z <= 10; z++) {
+    const zoneEV = zoneV_EV + (z - 5);
+    const isActive = z === 5; // Zone V is always the metered zone
+
+    const cell = document.createElement('div');
+    cell.className = 'zone-cell' + (isActive ? ' active-zone' : '');
+    cell.style.background = ZONE_COLORS[z];
+    cell.style.color = z > 5 ? '#333' : '#ccc';
+    cell.textContent = ZONE_NAMES[z];
+    strip.appendChild(cell);
+
+    const dcell = document.createElement('div');
+    dcell.className = 'zone-desc-cell';
+    dcell.textContent = ZONE_DESCS[z];
+    desc.appendChild(dcell);
+  }
+
+  // Zone info
+  const highlights_ev = zoneV_EV + 3; // Zone VIII
+  const shadows_ev    = zoneV_EV - 3; // Zone II
+  const dynamic_range = 10; // typical film
+
+  document.getElementById('zoneInfo').innerHTML = `
+    <strong>Zone V (Orta Gri):</strong> EV ${zoneV_EV.toFixed(1)}<br>
+    <strong>Gölge Sınırı (Zone II):</strong> EV ${shadows_ev.toFixed(1)}<br>
+    <strong>Işık Sınırı (Zone VIII):</strong> EV ${highlights_ev.toFixed(1)}<br>
+    <strong>Dinamik Aralık:</strong> ~${dynamic_range} stop (analog film)
+  `;
+
+  // Strategy
+  let strategy = '';
+  if (currentEV >= 13) {
+    strategy = `Parlak sahne (EV ${currentEV.toFixed(1)}). <strong>N-1 banyo</strong> (geliştirme süresini %20 kıs) — yüksek notları koru. Diyaframı 1 stop kapatarak pozla.`;
+  } else if (currentEV <= 7) {
+    strategy = `Düşük ışık (EV ${currentEV.toFixed(1)}). <strong>N+1 banyo</strong> (geliştirme süresini %20 artır) — kontrastı aç. Geniş diyafram veya push banyo düşün.`;
+  } else {
+    strategy = `Normal ışık (EV ${currentEV.toFixed(1)}). <strong>Normal banyo</strong> (N). Zone V'e poz ver. ISO ${currentISO} ile ideal sonuç beklenir.`;
+  }
+
+  document.getElementById('zoneStrategy').innerHTML = strategy;
+}
+
+// ═══════════════════════════════════════════════
+//  ISO
+// ═══════════════════════════════════════════════
+function setISO(val, btn) {
+  currentISO = val;
+  document.querySelectorAll('.iso-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (currentEV !== null) updateAllDisplays();
+}
+
+function setMeterMode(mode, btn) {
+  meterMode = mode;
+  document.querySelectorAll('.meter-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  MODE SWITCHING
+// ═══════════════════════════════════════════════
+function switchMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pg-' + mode).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  ZONE STRIP INIT
+// ═══════════════════════════════════════════════
+function initZoneStrip() {
+  const strip = document.getElementById('zoneStrip');
+  const desc  = document.getElementById('zoneDesc');
+  strip.innerHTML = '';
+  desc.innerHTML  = '';
+  for (let z = 0; z <= 10; z++) {
+    const cell = document.createElement('div');
+    cell.className = 'zone-cell';
+    cell.style.background = ZONE_COLORS[z];
+    cell.style.color = z > 5 ? '#444' : '#bbb';
+    cell.textContent = ZONE_NAMES[z];
+    strip.appendChild(cell);
+
+    const dc = document.createElement('div');
+    dc.className = 'zone-desc-cell';
+    dc.textContent = ZONE_DESCS[z];
+    desc.appendChild(dc);
+  }
+}
+
+initZoneStrip();
+
+// Init slider labels
+document.getElementById('avAperture').dispatchEvent(new Event('input'));
+document.getElementById('tvShutter').dispatchEvent(new Event('input'));
+</script>
+</body>
+</html>
