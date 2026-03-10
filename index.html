@@ -7,637 +7,256 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pozometre">
-<meta name="theme-color" content="#0f0f0f">
+<meta name="theme-color" content="#111">
 <link rel="manifest" href="meter-manifest.json">
-<title>Pozometre — Light Meter</title>
+<title>Pozometre</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const swPath = location.pathname.replace(/\/[^/]*$/, '/meter-sw.js');
-    navigator.serviceWorker.register(swPath).catch(()=>{});
-  });
-}
-</script>
 <style>
 :root {
-  --bg:      #0f0f0f;
-  --bg2:     #1a1a1a;
-  --bg3:     #242424;
-  --surface: #1e1e1e;
-  --border:  #2e2e2e;
-  --text:    #f0f0f0;
-  --text2:   #909090;
-  --text3:   #555;
-  --gold:    #d4a843;
-  --gold2:   #a07820;
-  --red:     #e05540;
-  --green:   #4caf6e;
-  --blue:    #5080d0;
-  --shadow:  0 4px 20px rgba(0,0,0,0.5);
+  --bg:       #111;
+  --bg2:      #1a1a1a;
+  --bg3:      #242424;
+  --surface:  #1e1e1e;
+  --border:   #303030;
+  --text:     #f0f0f0;
+  --text2:    #909090;
+  --text3:    #4a4a4a;
+  --gold:     #d4a843;
+  --gold2:    #a07820;
+  --gold-dim: rgba(212,168,67,0.12);
+  --red:      #e05540;
+  --green:    #4caf6e;
+  --blue:     #5080d0;
+  --purple:   #9060c0;
 }
-
 html[data-mode="safe"] {
-  --bg: #080000; --bg2: #120000; --bg3: #1a0000; --surface: #150000;
-  --border: #3a0800; --text: #ff3311; --text2: #cc2200; --text3: #661100;
-  --gold: #cc2200; --gold2: #881100; --red: #ff3311; --green: #881100; --blue: #661100;
+  --bg:#080000;--bg2:#120000;--bg3:#1c0000;--surface:#160000;
+  --border:#3a0800;--text:#ff3311;--text2:#bb2200;--text3:#551100;
+  --gold:#cc2200;--gold2:#881100;--gold-dim:rgba(204,34,0,0.12);
+  --red:#ff3311;--green:#881100;--blue:#661100;--purple:#550000;
 }
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;padding-top:env(safe-area-inset-top)}
 
-*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200}
+.app-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.1em;color:var(--text);line-height:1}
+.app-title span{color:var(--gold)}
+.app-title small{display:block;font-size:9px;letter-spacing:0.25em;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400}
+.safe-btn{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;transition:all 0.3s}
+.safe-dot{width:7px;height:7px;border-radius:50%;background:#555;transition:all 0.3s}
+html[data-mode="safe"] .safe-dot{background:#ff3311;box-shadow:0 0 6px 2px rgba(255,51,17,0.8);animation:dp 2s ease-in-out infinite}
+@keyframes dp{0%,100%{box-shadow:0 0 6px 2px rgba(255,51,17,0.7)}50%{box-shadow:0 0 12px 5px rgba(255,51,17,1)}}
+html[data-mode="safe"] .safe-btn{border-color:#5a0800;background:#1a0000;color:#cc2200}
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  min-height: 100vh;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-  padding-top: env(safe-area-inset-top);
-}
+/* ── TABS ── */
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;min-width:72px;padding:11px 6px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all 0.2s}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+html[data-mode="safe"] .tab.active{color:var(--red);border-bottom-color:var(--red)}
 
-/* ── TOP BAR ── */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 100;
-}
-
-.app-name {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 20px;
-  letter-spacing: 0.1em;
-  color: var(--text);
-}
-
-.app-name span { color: var(--gold); }
-
-.topbar-right { display: flex; gap: 8px; align-items: center; }
-
-.icon-btn {
-  width: 36px; height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg3);
-  color: var(--text2);
-  font-size: 16px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
-  -webkit-user-select: none;
-}
-
-.icon-btn:active { transform: scale(0.92); }
-.icon-btn.safe-active { background: #3a0000; border-color: #cc2200; color: #ff3311; }
-
-/* ── CAMERA SECTION ── */
-.camera-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4/3;
-  background: #000;
-  overflow: hidden;
-}
-
-video {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.camera-overlay {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  pointer-events: none;
-}
-
-/* Spot metering circle */
-.spot-circle {
-  width: 80px; height: 80px;
-  border: 2px solid rgba(255,255,255,0.7);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
-  position: relative;
-}
-
-.spot-circle::before, .spot-circle::after {
-  content: '';
-  position: absolute;
-  background: rgba(255,255,255,0.6);
-}
-.spot-circle::before { width: 1px; height: 20px; top: -26px; left: 50%; transform: translateX(-50%); }
-.spot-circle::after  { width: 20px; height: 1px; left: -26px; top: 50%; transform: translateY(-50%); }
-
-/* EV overlay on camera */
-.ev-overlay {
-  position: absolute;
-  top: 12px; left: 12px;
-  background: rgba(0,0,0,0.65);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px;
-  padding: 8px 14px;
-  backdrop-filter: blur(4px);
-}
-
-.ev-overlay-val {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 32px;
-  color: var(--gold);
-  line-height: 1;
-}
-
-.ev-overlay-label {
-  font-size: 9px;
-  letter-spacing: 0.2em;
-  color: rgba(255,255,255,0.5);
-  text-transform: uppercase;
-}
-
-/* Exposure bar overlay */
-.expo-bar-wrap {
-  position: absolute;
-  bottom: 16px; left: 16px; right: 16px;
-}
-
-.expo-bar-track {
-  height: 4px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 2px;
-  position: relative;
-}
-
-.expo-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(to right, var(--blue), var(--green), var(--gold), var(--red));
-  transition: width 0.3s ease;
-}
-
-.expo-bar-center {
-  position: absolute;
-  top: -3px; left: 50%;
-  transform: translateX(-50%);
-  width: 2px; height: 10px;
-  background: rgba(255,255,255,0.8);
-  border-radius: 1px;
-}
-
-.expo-marker {
-  position: absolute;
-  top: -6px;
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  background: white;
-  transform: translateX(-50%);
-  transition: left 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-}
-
-.expo-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 5px;
-  font-size: 9px;
-  color: rgba(255,255,255,0.45);
-  letter-spacing: 0.1em;
-}
-
-/* Camera placeholder */
-.camera-placeholder {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 12px;
-  background: var(--bg2);
-}
-
-.camera-placeholder .icon { font-size: 48px; opacity: 0.3; }
-.camera-placeholder p { font-size: 12px; color: var(--text3); letter-spacing: 0.1em; text-align: center; padding: 0 30px; line-height: 1.6; }
-
-.start-camera-btn {
-  padding: 12px 28px;
-  background: var(--gold2);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 18px;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-}
-
-/* ── MODE TABS ── */
-.mode-tabs {
-  display: flex;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-}
-
-.mode-tab {
-  flex: 1;
-  padding: 11px 4px;
-  font-family: 'DM Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text3);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.mode-tab.active {
-  color: var(--gold);
-  border-bottom-color: var(--gold);
-}
-
-html[data-mode="safe"] .mode-tab.active { color: var(--red); border-bottom-color: var(--red); }
-
-/* ── CONTENT ── */
-.content { padding: 16px; padding-bottom: 80px; }
-
-.mode-page { display: none; }
-.mode-page.active { display: block; }
-
-/* ── EV DISPLAY ── */
-.ev-main {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 14px;
-  text-align: center;
-}
-
-.ev-number {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 72px;
-  color: var(--gold);
-  line-height: 1;
-  letter-spacing: 0.02em;
-  text-shadow: 0 0 30px rgba(212,168,67,0.3);
-}
-
-.ev-number small { font-size: 22px; color: var(--text3); }
-.ev-sub { font-size: 10px; letter-spacing: 0.25em; color: var(--text3); text-transform: uppercase; margin-top: 4px; }
-.ev-scene { font-size: 12px; color: var(--text2); margin-top: 8px; letter-spacing: 0.08em; }
-
-/* ── ISO SELECTOR ── */
-.iso-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.iso-btn {
-  padding: 7px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg3);
-  color: var(--text2);
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-  -webkit-user-select: none;
-}
-
-.iso-btn.active {
-  background: var(--gold2);
-  border-color: var(--gold);
-  color: #fff;
-}
-
-html[data-mode="safe"] .iso-btn.active { background: #660000; border-color: var(--red); color: var(--red); }
+/* ── LAYOUT ── */
+.app{max-width:560px;margin:0 auto;padding:0 0 90px}
+.page{display:none;padding:14px}
+.page.active{display:block}
 
 /* ── CARD ── */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:linear-gradient(to bottom,var(--gold),transparent)}
+html[data-mode="safe"] .card::before{background:linear-gradient(to bottom,var(--red),transparent)}
+.card-label{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 
-.card-label {
-  font-size: 9px;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: var(--text3);
-  margin-bottom: 12px;
-}
+/* ── LUX INPUT ── */
+.lux-input-wrap{position:relative;margin:8px 0 14px}
+.lux-big-input{width:100%;background:var(--bg3);border:2px solid var(--border);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:0.05em;text-align:center;padding:16px 12px 12px;border-radius:10px;transition:border-color 0.2s;-webkit-appearance:none;appearance:none}
+.lux-big-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-dim)}
+html[data-mode="safe"] .lux-big-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(204,34,0,0.15)}
+.lux-unit{position:absolute;right:16px;bottom:18px;font-size:12px;color:var(--text3);letter-spacing:0.15em;pointer-events:none}
 
-/* ── SLIDER ── */
-.param-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
+/* Quick lux presets */
+.lux-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.lp{padding:6px 11px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);font-size:10px;letter-spacing:0.08em;cursor:pointer;transition:all 0.15s;font-family:'DM Mono',monospace;white-space:nowrap}
+.lp:active,.lp.active{background:var(--gold2);border-color:var(--gold);color:#fff}
+html[data-mode="safe"] .lp.active{background:#660000;border-color:var(--red);color:var(--red)}
 
-.param-label { font-size: 11px; color: var(--text2); min-width: 70px; }
+/* ── EV DISPLAY ── */
+.ev-bar{display:flex;align-items:center;gap:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:12px}
+.ev-big{font-family:'Bebas Neue',sans-serif;font-size:56px;color:var(--gold);line-height:1;letter-spacing:0.02em;text-shadow:0 0 20px rgba(212,168,67,0.25);min-width:80px;text-align:center}
+html[data-mode="safe"] .ev-big{text-shadow:0 0 20px rgba(204,34,0,0.35)}
+.ev-right{flex:1}
+.ev-scene-name{font-size:13px;color:var(--text);margin-bottom:4px;line-height:1.4}
+.ev-scene-sub{font-size:10px;color:var(--text3);letter-spacing:0.08em}
 
-input[type="range"] {
-  flex: 1;
-  height: 4px;
-  background: var(--bg3);
-  border-radius: 2px;
-  outline: none;
-  border: none;
-  accent-color: var(--gold);
-  cursor: pointer;
-}
+/* EV scale bar */
+.ev-scale{margin-top:8px}
+.ev-scale-track{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;position:relative;border:1px solid var(--border)}
+.ev-scale-fill{height:100%;border-radius:3px;background:linear-gradient(to right,#1a3a8a,#2a6b3a,#d4a843,#e05540);transition:width 0.5s cubic-bezier(.4,0,.2,1)}
+.ev-scale-labels{display:flex;justify-content:space-between;font-size:8px;color:var(--text3);margin-top:3px;letter-spacing:0.08em}
 
-.param-val {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 20px;
-  color: var(--text);
-  min-width: 70px;
-  text-align: right;
-  letter-spacing: 0.05em;
-}
+/* ── ISO ROW ── */
+.iso-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.iso-btn{padding:6px 11px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.15s}
+.iso-btn.active{background:var(--gold2);border-color:var(--gold);color:#fff}
+html[data-mode="safe"] .iso-btn.active{background:#660000;border-color:var(--red);color:var(--red)}
 
-/* ── RESULTS GRID ── */
-.results-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 12px;
-}
+/* ── MODE PAGES ── */
+/* Aperture / Shutter selector pills */
+.stop-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
+.stop-pill{padding:7px 13px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.stop-pill.active{background:var(--gold2);border-color:var(--gold);color:#fff}
+html[data-mode="safe"] .stop-pill.active{background:#660000;border-color:var(--red);color:var(--red)}
 
-.result-cell {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  text-align: center;
-}
+/* Results table */
+.result-table{width:100%;border-collapse:collapse}
+.result-table tr{border-bottom:1px solid var(--border)}
+.result-table tr:last-child{border-bottom:none}
+.result-table td{padding:10px 8px;font-size:13px;vertical-align:middle}
+.result-table td:first-child{color:var(--text3);font-size:11px;width:38%}
+.result-table td:nth-child(2){font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--text);letter-spacing:0.04em}
+.result-table td:last-child{font-size:10px;color:var(--text3);text-align:right}
+.result-table tr.optimal td:nth-child(2){color:var(--gold)}
+.result-table tr.optimal td:first-child{color:var(--text2)}
+.result-table tr.warn td:nth-child(2){color:var(--red)}
+html[data-mode="safe"] .result-table tr.optimal td:nth-child(2){color:var(--red)}
 
-.result-cell.highlight {
-  border-color: var(--gold);
-  background: rgba(212,168,67,0.08);
-}
+/* Manuel result */
+.man-result{border-radius:10px;padding:16px;text-align:center;margin-top:4px;border:1px solid var(--border)}
+.man-result.ok{background:rgba(76,175,110,0.08);border-color:rgba(76,175,110,0.3)}
+.man-result.over{background:rgba(224,85,64,0.08);border-color:rgba(224,85,64,0.3)}
+.man-result.under{background:rgba(80,128,208,0.08);border-color:rgba(80,128,208,0.3)}
+html[data-mode="safe"] .man-result{background:rgba(204,34,0,0.08);border-color:rgba(204,34,0,0.3)}
 
-html[data-mode="safe"] .result-cell.highlight {
-  border-color: var(--red);
-  background: rgba(204,34,0,0.1);
-}
+/* ── LUX REFERENCE CHART ── */
+.ref-chart{display:flex;flex-direction:column;gap:3px}
+.ref-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;position:relative;overflow:hidden}
+.ref-item:active,.ref-item.highlight{border-color:var(--gold);background:var(--gold-dim)}
+html[data-mode="safe"] .ref-item.highlight{border-color:var(--red);background:rgba(204,34,0,0.1)}
 
-.rc-label { font-size: 9px; letter-spacing: 0.2em; color: var(--text3); text-transform: uppercase; margin-bottom: 5px; }
-.rc-val { font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: var(--text); line-height: 1; }
-.rc-val small { font-size: 12px; color: var(--text3); }
-.rc-note { font-size: 9px; color: var(--text3); margin-top: 3px; }
+.ref-bar{position:absolute;left:0;top:0;bottom:0;opacity:0.12;pointer-events:none;transition:width 0.4s ease}
+.ref-icon{font-size:22px;width:30px;text-align:center;flex-shrink:0;z-index:1}
+.ref-info{flex:1;z-index:1}
+.ref-name{font-size:12px;color:var(--text);line-height:1.3}
+.ref-sub{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:0.04em}
+.ref-vals{text-align:right;z-index:1;flex-shrink:0}
+.ref-lux{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold);letter-spacing:0.04em;line-height:1}
+html[data-mode="safe"] .ref-lux{color:var(--red)}
+.ref-ev{font-size:9px;color:var(--text3);letter-spacing:0.1em}
 
-/* ── EXPOSURE TABLE ── */
-.expo-table { width:100%; border-collapse:collapse; }
-.expo-table td { padding:8px 6px; border-bottom:1px solid var(--border); font-size:12px; }
-.expo-table td:first-child { color: var(--text3); font-size:11px; }
-.expo-table td:last-child { color: var(--text); text-align:right; font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:0.05em; }
-.expo-table tr.optimal td { color: var(--gold); }
-.expo-table tr:last-child td { border-bottom: none; }
-
-html[data-mode="safe"] .expo-table tr.optimal td { color: var(--red); }
+/* Time of day arc */
+.tod-arc{width:100%;height:120px;position:relative;margin-bottom:16px}
+.tod-svg{width:100%;height:100%}
 
 /* ── ZONE SYSTEM ── */
-.zone-strip {
-  display: grid;
-  grid-template-columns: repeat(11, 1fr);
-  gap: 2px;
-  margin: 12px 0;
-}
+.zone-strip{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;margin:10px 0 4px}
+.zone-cell{aspect-ratio:1;border-radius:3px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;font-size:8px;font-weight:600;border:2px solid transparent;transition:border-color 0.3s,box-shadow 0.3s}
+.zone-cell.current{border-color:var(--gold);box-shadow:0 0 8px rgba(212,168,67,0.5)}
+html[data-mode="safe"] .zone-cell.current{border-color:var(--red);box-shadow:0 0 8px rgba(204,34,0,0.5)}
+.zone-labels{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;margin-bottom:10px}
+.zone-lbl{font-size:7px;text-align:center;color:var(--text3);line-height:1.3;padding:1px}
 
-.zone-cell {
-  aspect-ratio: 1;
-  border-radius: 3px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 3px;
-  font-size: 8px;
-  font-weight: 500;
-  position: relative;
-  border: 1.5px solid transparent;
-  transition: border-color 0.3s;
-}
+.zone-info-box{background:var(--bg3);border-radius:8px;padding:14px;font-size:12px;line-height:1.9;color:var(--text2)}
+.zone-info-box strong{color:var(--text)}
+.zone-strategy{background:var(--bg3);border-radius:8px;padding:14px;font-size:12px;line-height:1.9;color:var(--text2);margin-top:10px}
 
-.zone-cell.active-zone {
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(212,168,67,0.4);
-}
+/* ── FORM ── */
+label{display:block;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:11px 12px;border-radius:8px;appearance:none;min-height:44px}
+select:focus{outline:none;border-color:var(--gold)}
+select option{background:var(--bg2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{margin-bottom:12px}
+.divider{height:1px;background:var(--border);margin:12px 0}
 
-html[data-mode="safe"] .zone-cell.active-zone { border-color: var(--red); }
-
-.zone-desc {
-  display: grid;
-  grid-template-columns: repeat(11, 1fr);
-  gap: 2px;
-  margin-bottom: 10px;
-}
-
-.zone-desc-cell {
-  font-size: 7px;
-  text-align: center;
-  color: var(--text3);
-  line-height: 1.3;
-  padding: 2px 1px;
-}
-
-.zone-info {
-  background: var(--bg3);
-  border-radius: 8px;
-  padding: 14px;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--text2);
-}
-
-.zone-info strong { color: var(--text); }
-
-/* ── BOTTOM MEASURE BTN ── */
-.measure-btn-wrap {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
-  background: var(--bg2);
-  border-top: 1px solid var(--border);
-  z-index: 50;
-}
-
-.measure-btn {
-  width: 100%;
-  padding: 15px;
-  background: var(--gold2);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 22px;
-  letter-spacing: 0.2em;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.measure-btn.measuring {
-  background: var(--green);
-  animation: measure-pulse 1s ease-in-out infinite;
-}
-
-@keyframes measure-pulse {
-  0%,100% { background: var(--green); }
-  50%      { background: #3a9a58; }
-}
-
-html[data-mode="safe"] .measure-btn { background: #660000; }
-html[data-mode="safe"] .measure-btn.measuring { background: #880000; }
-
-.measure-btn:active { transform: scale(0.98); }
+/* ── CALC BTN ── */
+.calc-btn-wrap{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));background:var(--bg2);border-top:1px solid var(--border);z-index:100}
+.calc-btn{width:100%;padding:15px;background:var(--gold2);color:#fff;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.2em;cursor:pointer;transition:all 0.2s;min-height:52px}
+.calc-btn:active{transform:scale(0.98);background:var(--gold)}
+html[data-mode="safe"] .calc-btn{background:#660000;color:#ff3311}
 
 /* ── MISC ── */
-select, input[type="number"] {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: 14px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  width: 100%;
-  appearance: none;
-  min-height: 44px;
-}
-
-select:focus, input[type="number"]:focus { outline: none; border-color: var(--gold); }
-select option { background: var(--bg2); }
-
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.field { margin-bottom: 12px; }
-label { display:block; font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--text3); margin-bottom:6px; }
-.divider { height:1px; background:var(--border); margin:12px 0; }
-
-/* Metering mode selector */
-.meter-modes {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.meter-mode-btn {
-  flex: 1;
-  padding: 8px 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg3);
-  color: var(--text3);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: 'DM Mono', monospace;
-  text-align: center;
-}
-
-.meter-mode-btn.active {
-  border-color: var(--gold);
-  color: var(--gold);
-  background: rgba(212,168,67,0.08);
-}
-
-html[data-mode="safe"] .meter-mode-btn.active { border-color:var(--red); color:var(--red); background:rgba(204,34,0,0.08); }
-
-.locked-badge {
-  display: inline-block;
-  background: var(--green);
-  color: #fff;
-  font-size: 9px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-left: 8px;
-}
-
-html[data-mode="safe"] .locked-badge { background: var(--red2, #881100); }
+.small-note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:8px;letter-spacing:0.04em}
+.tag{display:inline-block;padding:3px 9px;border-radius:4px;font-size:9px;letter-spacing:0.12em;text-transform:uppercase}
+.tag-ok{background:rgba(76,175,110,0.15);color:#4caf6e;border:1px solid rgba(76,175,110,0.3)}
+.tag-warn{background:rgba(212,168,67,0.12);color:var(--gold);border:1px solid rgba(212,168,67,0.3)}
+.tag-err{background:rgba(224,85,64,0.12);color:#e05540;border:1px solid rgba(224,85,64,0.3)}
+html[data-mode="safe"] .tag-ok,.tag-warn,.tag-err{background:rgba(204,34,0,0.12);color:var(--red);border-color:rgba(204,34,0,0.3)}
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
 <div class="topbar">
-  <div class="app-name">Poz<span>ometre</span></div>
-  <div class="topbar-right">
-    <button class="icon-btn" onclick="toggleCamera()" title="Kamerayı Aç/Kapat" id="camBtn">📷</button>
-    <button class="icon-btn" onclick="toggleSafe()" id="safeBtn" title="Safelight">🔴</button>
+  <div class="app-title">
+    Poz<span>ometre</span>
+    <small>Manuel Giriş</small>
   </div>
+  <button class="safe-btn" onclick="toggleSafe()">
+    <div class="safe-dot" id="safeDot"></div>
+    <span id="safeTxt">Safelight</span>
+  </button>
 </div>
 
-<!-- CAMERA -->
-<div class="camera-wrap" id="cameraWrap">
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas" style="display:none"></canvas>
-
-  <!-- Hidden placeholder -->
-  <div class="camera-placeholder" id="camPlaceholder">
-    <div class="icon">📷</div>
-    <p>Işık ölçümü için kamerayı aç.<br>Telefonu sahneye doğrult, ölç butonuna bas.</p>
-    <button class="start-camera-btn" onclick="startCamera()">Kamerayı Aç</button>
-  </div>
-
-  <!-- Camera live overlays -->
-  <div class="camera-overlay" id="camOverlay" style="display:none">
-    <div class="spot-circle"></div>
-  </div>
-
-  <div class="ev-overlay" id="evOverlay" style="display:none">
-    <div class="ev-overlay-val" id="evOverlayVal">—</div>
-    <div class="ev-overlay-label">EV</div>
-  </div>
-
-  <div class="expo-bar-wrap" id="expoBarWrap" style="display:none">
-    <div class="expo-bar-track">
-      <div class="expo-bar-fill" id="expoFill" style="width:50%"></div>
-      <div class="expo-bar-center"></div>
-      <div class="expo-marker" id="expoMarker" style="left:50%"></div>
-    </div>
-    <div class="expo-labels">
-      <span>— karanlık</span><span>ideal</span><span>aşık +</span>
-    </div>
-  </div>
+<div class="tabs">
+  <button class="tab active"   onclick="switchTab('input',this)">Giriş</button>
+  <button class="tab"          onclick="switchTab('av',this)">Av Modu</button>
+  <button class="tab"          onclick="switchTab('tv',this)">Tv Modu</button>
+  <button class="tab"          onclick="switchTab('manuel',this)">Manuel</button>
+  <button class="tab"          onclick="switchTab('zone',this)">Zone</button>
+  <button class="tab"          onclick="switchTab('referans',this)">Referans</button>
 </div>
 
-<!-- MODE TABS -->
-<div class="mode-tabs">
-  <button class="mode-tab active" onclick="switchMode('av',this)">Av</button>
-  <button class="mode-tab" onclick="switchMode('tv',this)">Tv</button>
-  <button class="mode-tab" onclick="switchMode('manuel',this)">Manuel</button>
-  <button class="mode-tab" onclick="switchMode('zone',this)">Zone</button>
-</div>
+<div class="app">
 
-<div class="content">
+<!-- ═══════ GİRİŞ ═══════ -->
+<div class="page active" id="pg-input">
 
-  <!-- EV + ISO (shared) -->
-  <div class="ev-main">
-    <div class="ev-number" id="evDisplay">—<small> EV</small></div>
-    <div class="ev-sub">Işık Değeri</div>
-    <div class="ev-scene" id="evScene">Ölçüm bekleniyor</div>
-  </div>
-
-  <!-- ISO -->
   <div class="card">
-    <div class="card-label">ISO Seçimi</div>
-    <div class="iso-row" id="isoRow">
+    <div class="card-label">Işık Değeri Girişi</div>
+
+    <!-- LUX INPUT -->
+    <div class="lux-input-wrap">
+      <input type="number" class="lux-big-input" id="luxInput"
+             placeholder="10000" min="0" max="200000"
+             inputmode="numeric" oninput="onLuxChange()">
+      <div class="lux-unit">LUX</div>
+    </div>
+
+    <!-- Hızlı presetler -->
+    <div class="card-label">Hızlı Seçim</div>
+    <div class="lux-presets" id="luxPresets">
+      <button class="lp" onclick="setLux(1,this)">🕯 1 lux</button>
+      <button class="lp" onclick="setLux(50,this)">🏠 50</button>
+      <button class="lp" onclick="setLux(200,this)">💡 200</button>
+      <button class="lp" onclick="setLux(500,this)">🏢 500</button>
+      <button class="lp" onclick="setLux(1000,this)">☁️ 1K</button>
+      <button class="lp" onclick="setLux(5000,this)">🌥 5K</button>
+      <button class="lp" onclick="setLux(10000,this)">⛅ 10K</button>
+      <button class="lp" onclick="setLux(32000,this)">🌤 32K</button>
+      <button class="lp" onclick="setLux(64000,this)">☀️ 64K</button>
+      <button class="lp" onclick="setLux(100000,this)">🌞 100K</button>
+    </div>
+
+    <!-- EV göstergesi -->
+    <div class="ev-bar" id="evBar">
+      <div class="ev-big" id="evBig">—</div>
+      <div class="ev-right">
+        <div class="ev-scene-name" id="evSceneName">Lux değeri girin</div>
+        <div class="ev-scene-sub" id="evSceneSub">EV100 hesaplanacak</div>
+        <div class="ev-scale" style="margin-top:10px">
+          <div class="ev-scale-track">
+            <div class="ev-scale-fill" id="evScaleFill" style="width:0%"></div>
+          </div>
+          <div class="ev-scale-labels">
+            <span>EV 0</span><span>EV 5</span><span>EV 10</span><span>EV 15</span><span>EV 20</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ISO -->
+    <div class="card-label">ISO</div>
+    <div class="iso-row">
       <button class="iso-btn" onclick="setISO(25,this)">25</button>
       <button class="iso-btn" onclick="setISO(50,this)">50</button>
       <button class="iso-btn" onclick="setISO(100,this)">100</button>
@@ -646,589 +265,712 @@ html[data-mode="safe"] .locked-badge { background: var(--red2, #881100); }
       <button class="iso-btn" onclick="setISO(1600,this)">1600</button>
       <button class="iso-btn" onclick="setISO(3200,this)">3200</button>
     </div>
-    <!-- Metering mode -->
-    <div class="card-label" style="margin-top:4px">Ölçüm Modu</div>
-    <div class="meter-modes">
-      <button class="meter-mode-btn active" onclick="setMeterMode('matrix',this)">Matris</button>
-      <button class="meter-mode-btn" onclick="setMeterMode('center',this)">Merkez</button>
-      <button class="meter-mode-btn" onclick="setMeterMode('spot',this)">Spot</button>
-    </div>
+
+    <button class="calc-btn" style="position:static;width:100%;margin-top:4px" onclick="calculate()">Hesapla →</button>
   </div>
 
-  <!-- ── MODE: Av ── -->
-  <div class="mode-page active" id="pg-av">
-    <div class="card">
-      <div class="card-label">Diyafram Öncelikli — Av Modu</div>
-      <div class="param-row">
-        <div class="param-label">Diyafram</div>
-        <input type="range" id="avAperture" min="0" max="10" value="4" oninput="calcAv()">
-        <div class="param-val" id="avApertureVal">f/5.6</div>
-      </div>
-      <div class="card-label">Perde Süresi Önerileri</div>
-      <table class="expo-table" id="avTable">
-        <tr><td colspan="2" style="text-align:center;color:var(--text3);font-size:12px">Önce ölçüm yapın</td></tr>
-      </table>
-    </div>
+</div><!-- /pg-input -->
+
+<!-- ═══════ Av MODU ═══════ -->
+<div class="page" id="pg-av">
+  <div class="card">
+    <div class="card-label">Diyafram Öncelikli — Av Modu</div>
+    <div class="card-label" style="margin-top:4px">Diyafram Seç</div>
+    <div class="stop-row" id="avApertureRow"></div>
+    <div id="avResult"><p class="small-note" style="text-align:center;padding:20px 0">Önce Giriş sekmesinden hesaplayın</p></div>
   </div>
-
-  <!-- ── MODE: Tv ── -->
-  <div class="mode-page" id="pg-tv">
-    <div class="card">
-      <div class="card-label">Perde Öncelikli — Tv Modu</div>
-      <div class="param-row">
-        <div class="param-label">Perde</div>
-        <input type="range" id="tvShutter" min="0" max="14" value="7" oninput="calcTv()">
-        <div class="param-val" id="tvShutterVal">1/125</div>
-      </div>
-      <div class="card-label">Diyafram Önerileri</div>
-      <table class="expo-table" id="tvTable">
-        <tr><td colspan="2" style="text-align:center;color:var(--text3);font-size:12px">Önce ölçüm yapın</td></tr>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── MODE: Manuel ── -->
-  <div class="mode-page" id="pg-manuel">
-    <div class="card">
-      <div class="card-label">Manuel Mod — ISO Önerisi</div>
-      <div class="row2">
-        <div class="field">
-          <label>Diyafram</label>
-          <select id="manAperture" onchange="calcManuel()">
-            <option value="1">f/1.0</option>
-            <option value="1.4">f/1.4</option>
-            <option value="2">f/2</option>
-            <option value="2.8">f/2.8</option>
-            <option value="4">f/4</option>
-            <option value="5.6" selected>f/5.6</option>
-            <option value="8">f/8</option>
-            <option value="11">f/11</option>
-            <option value="16">f/16</option>
-            <option value="22">f/22</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Perde Süresi</label>
-          <select id="manShutter" onchange="calcManuel()">
-            <option value="1000">1/1000</option>
-            <option value="500">1/500</option>
-            <option value="250">1/250</option>
-            <option value="125" selected>1/125</option>
-            <option value="60">1/60</option>
-            <option value="30">1/30</option>
-            <option value="15">1/15</option>
-            <option value="8">1/8</option>
-            <option value="4">1/4</option>
-            <option value="2">1/2</option>
-            <option value="1s">1"</option>
-          </select>
-        </div>
-      </div>
-      <div class="divider"></div>
-      <div id="manResult" style="text-align:center;color:var(--text3);font-size:12px;padding:10px">
-        Önce ölçüm yapın
-      </div>
-    </div>
-  </div>
-
-  <!-- ── MODE: Zone ── -->
-  <div class="mode-page" id="pg-zone">
-    <div class="card">
-      <div class="card-label">Zone System — Ansel Adams</div>
-      <div class="zone-strip" id="zoneStrip"></div>
-      <div class="zone-desc" id="zoneDesc"></div>
-      <div class="zone-info" id="zoneInfo">
-        Ölçüm yapıldıktan sonra sahnenin hangi zonlara düştüğü gösterilecek.
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-label">Zone Pozlama Stratejisi</div>
-      <div id="zoneStrategy" style="font-size:12px;color:var(--text2);line-height:1.9">
-        Ölçüm bekleniyor…
-      </div>
-    </div>
-  </div>
-
-</div><!-- /content -->
-
-<!-- MEASURE BUTTON -->
-<div class="measure-btn-wrap">
-  <button class="measure-btn" id="measureBtn" onclick="doMeasure()">
-    <span>⬤</span> Ölç
-  </button>
 </div>
 
-<script>
-// ═══════════════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════════════
-let currentEV = null;
-let currentISO = 400;
-let meterMode = 'matrix'; // matrix, center, spot
-let stream = null;
-let cameraActive = false;
-let isMeasuring = false;
-let safeMode = false;
-let currentMode = 'av';
-let lockedEV = null;
+<!-- ═══════ Tv MODU ═══════ -->
+<div class="page" id="pg-tv">
+  <div class="card">
+    <div class="card-label">Perde Öncelikli — Tv Modu</div>
+    <div class="card-label" style="margin-top:4px">Perde Süresi Seç</div>
+    <div class="stop-row" id="tvShutterRow"></div>
+    <div id="tvResult"><p class="small-note" style="text-align:center;padding:20px 0">Önce Giriş sekmesinden hesaplayın</p></div>
+  </div>
+</div>
 
-// ═══════════════════════════════════════════════
-//  CONSTANTS
-// ═══════════════════════════════════════════════
-const APERTURES = [1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22, 32];
-const SHUTTERS  = [2000, 1000, 500, 250, 125, 60, 30, 15, 8, 4, 2, 1, 0.5, 0.25, 0.125];
-const SHUTTER_LABELS = ['1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1"','2"','4"','8"'];
-
-const EV_SCENES = [
-  { min:-2, max:1,  label:'Kendi ışığıyla yanan mum' },
-  { min:1,  max:3,  label:'Loş iç mekan — gece lambası' },
-  { min:3,  max:5,  label:'İç mekan, normal aydınlatma' },
-  { min:5,  max:7,  label:'Karanlık bina içi, pencere ışığı' },
-  { min:7,  max:9,  label:'Gölgeli dış mekan — bulutlu' },
-  { min:9,  max:11, label:'Açık gölge — güneşli gün' },
-  { min:11, max:13, label:'Güneşli gün — gölgeli yüzey' },
-  { min:13, max:15, label:'Tam güneş ışığı' },
-  { min:15, max:18, label:'Çok parlak — kar, kum, su yansıması' },
-];
-
-const ZONE_COLORS = [
-  '#000000','#1a1a1a','#333333','#4d4d4d','#666666',
-  '#808080','#999999','#b3b3b3','#cccccc','#e6e6e6','#ffffff'
-];
-
-const ZONE_NAMES = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X'];
-
-const ZONE_DESCS = [
-  'Siyah','Derin\ngölge','Gölge\ndetay','Koyu\ngri','Orta\nkoyu',
-  'Orta\ngri','Açık\ngri','Işıklı\nbölge','Beyaza\nyakın','Neredeyse\nbeyaz','Beyaz'
-];
-
-// ═══════════════════════════════════════════════
-//  SAFELIGHT
-// ═══════════════════════════════════════════════
-function toggleSafe() {
-  safeMode = !safeMode;
-  document.documentElement.setAttribute('data-mode', safeMode ? 'safe' : 'normal');
-  document.getElementById('safeBtn').classList.toggle('safe-active', safeMode);
-}
-
-// ═══════════════════════════════════════════════
-//  CAMERA
-// ═══════════════════════════════════════════════
-async function startCamera() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    const video = document.getElementById('video');
-    video.srcObject = stream;
-    cameraActive = true;
-    document.getElementById('camPlaceholder').style.display = 'none';
-    document.getElementById('camOverlay').style.display = 'flex';
-    document.getElementById('evOverlay').style.display = 'block';
-    document.getElementById('expoBarWrap').style.display = 'block';
-    document.getElementById('camBtn').textContent = '⏹';
-
-    // Live metering loop
-    startLiveMetering();
-  } catch(e) {
-    alert('Kamera erişimi reddedildi. Tarayıcı ayarlarından kamera iznini ver.');
-  }
-}
-
-function toggleCamera() {
-  if (cameraActive) stopCamera();
-  else startCamera();
-}
-
-function stopCamera() {
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  cameraActive = false;
-  document.getElementById('camPlaceholder').style.display = 'flex';
-  document.getElementById('camOverlay').style.display = 'none';
-  document.getElementById('evOverlay').style.display = 'none';
-  document.getElementById('expoBarWrap').style.display = 'none';
-  document.getElementById('camBtn').textContent = '📷';
-}
-
-let liveInterval = null;
-
-function startLiveMetering() {
-  if (liveInterval) clearInterval(liveInterval);
-  liveInterval = setInterval(() => {
-    if (!cameraActive) return;
-    const ev = measureFromCamera(false);
-    if (ev !== null) {
-      document.getElementById('evOverlayVal').textContent = ev.toFixed(1);
-      updateExpoBar(ev);
-    }
-  }, 300);
-}
-
-function measureFromCamera(precise) {
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
-  if (!video.videoWidth) return null;
-
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0);
-
-  let imageData;
-  const w = canvas.width, h = canvas.height;
-
-  if (meterMode === 'spot') {
-    // Center 15% spot
-    const sw = Math.round(w * 0.15), sh = Math.round(h * 0.15);
-    const sx = Math.round((w - sw) / 2), sy = Math.round((h - sh) / 2);
-    imageData = ctx.getImageData(sx, sy, sw, sh);
-  } else if (meterMode === 'center') {
-    // Center 40%
-    const sw = Math.round(w * 0.4), sh = Math.round(h * 0.4);
-    const sx = Math.round((w - sw) / 2), sy = Math.round((h - sh) / 2);
-    imageData = ctx.getImageData(sx, sy, sw, sh);
-  } else {
-    // Matrix — full frame with weighted center
-    imageData = ctx.getImageData(0, 0, w, h);
-  }
-
-  // Calculate luminance
-  const data = imageData.data;
-  let totalLum = 0, count = 0;
-
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i], g = data[i+1], b = data[i+2];
-    // Relative luminance (ITU-R BT.709)
-    const lum = 0.2126 * (r/255) + 0.7152 * (g/255) + 0.0722 * (b/255);
-    totalLum += lum;
-    count++;
-  }
-
-  const avgLum = count > 0 ? totalLum / count : 0.18;
-  const safeLum = Math.max(avgLum, 0.0001);
-
-  // Convert luminance to EV (ISO 100 base)
-  // EV = log2(L * 312.5) for ISO 100 calibration
-  const evBase = Math.log2(safeLum * 312.5);
-
-  // Adjust for ISO
-  const evISO = evBase + Math.log2(currentISO / 100);
-
-  return Math.round(evISO * 2) / 2; // round to 0.5 stops
-}
-
-function updateExpoBar(ev) {
-  // Map EV -2 to 18 → 0% to 100%
-  const pct = Math.max(0, Math.min(100, ((ev + 2) / 20) * 100));
-  document.getElementById('expoMarker').style.left = pct + '%';
-}
-
-// ═══════════════════════════════════════════════
-//  MEASURE
-// ═══════════════════════════════════════════════
-function doMeasure() {
-  const btn = document.getElementById('measureBtn');
-
-  if (!cameraActive) {
-    startCamera().then(() => { setTimeout(doMeasure, 800); });
-    return;
-  }
-
-  btn.classList.add('measuring');
-  btn.innerHTML = '<span>◉</span> Ölçülüyor…';
-  isMeasuring = true;
-
-  // Take 3 samples and average for precision
-  setTimeout(() => {
-    const samples = [];
-    for (let i = 0; i < 3; i++) {
-      const v = measureFromCamera(true);
-      if (v !== null) samples.push(v);
-    }
-
-    if (samples.length === 0) {
-      btn.classList.remove('measuring');
-      btn.innerHTML = '<span>⬤</span> Ölç';
-      alert('Ölçüm yapılamadı. Kamera görüntüsü kontrol edin.');
-      return;
-    }
-
-    const ev = samples.reduce((a,b) => a+b, 0) / samples.length;
-    currentEV = Math.round(ev * 2) / 2;
-    lockedEV = currentEV;
-
-    btn.classList.remove('measuring');
-    btn.innerHTML = '<span>⬤</span> Tekrar Ölç';
-    isMeasuring = false;
-
-    updateAllDisplays();
-  }, 600);
-}
-
-// ═══════════════════════════════════════════════
-//  DISPLAY UPDATES
-// ═══════════════════════════════════════════════
-function updateAllDisplays() {
-  if (currentEV === null) return;
-
-  // EV display
-  document.getElementById('evDisplay').innerHTML = `${currentEV.toFixed(1)}<small> EV</small>`;
-  document.getElementById('evOverlayVal').textContent = currentEV.toFixed(1);
-
-  // Scene description
-  const scene = EV_SCENES.find(s => currentEV >= s.min && currentEV < s.max);
-  document.getElementById('evScene').textContent = scene ? scene.label : (currentEV < 0 ? 'Çok karanlık' : 'Çok parlak');
-
-  calcAv();
-  calcTv();
-  calcManuel();
-  updateZone();
-}
-
-// EV100 from camera EV (ISO-adjusted)
-function getEV100() {
-  if (currentEV === null) return null;
-  return currentEV - Math.log2(currentISO / 100);
-}
-
-// Exposure value for given aperture, shutter (EV = log2(N²/t))
-function computeEV(aperture, shutter) {
-  return Math.log2((aperture * aperture) / (1 / shutter));
-}
-
-// Find shutter for given aperture + EV
-function shutterFromApertureEV(aperture, ev) {
-  // EV = log2(N²/t) → t = N²/2^EV
-  return (aperture * aperture) / Math.pow(2, ev);
-}
-
-// Find aperture for given shutter + EV
-function apertureFromShutterEV(shutter, ev) {
-  return Math.sqrt(Math.pow(2, ev) / shutter);
-}
-
-function formatShutter(t) {
-  if (t >= 1) return t.toFixed(1) + '"';
-  const denom = Math.round(1 / t);
-  return '1/' + denom;
-}
-
-function formatAperture(f) {
-  if (f < 10) return 'f/' + f.toFixed(1);
-  return 'f/' + Math.round(f);
-}
-
-// ── Av MODE ──
-const AV_APERTURE_VALS = [1,1.4,2,2.8,4,5.6,8,11,16,22,32];
-
-function calcAv() {
-  const idx = parseInt(document.getElementById('avAperture').value);
-  const aperture = AV_APERTURE_VALS[idx];
-  document.getElementById('avApertureVal').textContent = formatAperture(aperture);
-
-  if (currentEV === null) return;
-
-  const ev = currentEV;
-  const optShutter = shutterFromApertureEV(aperture, ev);
-
-  // Build table: ±2 stops of aperture variation
-  let html = '';
-  const apertureStops = [-2,-1,0,1,2];
-  apertureStops.forEach(stop => {
-    const a = aperture * Math.pow(Math.sqrt(2), stop);
-    const s = shutterFromApertureEV(a, ev);
-    const isOpt = stop === 0;
-    const sLabel = formatShutter(s);
-    const aLabel = formatAperture(a);
-    const warn = s < 1/1000 ? ' ⚡' : s > 1 ? ' 🎯 tripod' : '';
-    html += `<tr class="${isOpt?'optimal':''}">
-      <td>${aLabel}${isOpt?' ◀ seçili':''}</td>
-      <td>${sLabel}${warn}</td>
-    </tr>`;
-  });
-  document.getElementById('avTable').innerHTML = html;
-}
-
-// ── Tv MODE ──
-const TV_SHUTTER_VALS = [1/2000,1/1000,1/500,1/250,1/125,1/60,1/30,1/15,1/8,1/4,1/2,1,2,4,8];
-const TV_SHUTTER_LABELS = ['1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1"','2"','4"','8"'];
-
-function calcTv() {
-  const idx = parseInt(document.getElementById('tvShutter').value);
-  const shutter = TV_SHUTTER_VALS[idx];
-  document.getElementById('tvShutterVal').textContent = TV_SHUTTER_LABELS[idx];
-
-  if (currentEV === null) return;
-
-  const ev = currentEV;
-
-  let html = '';
-  const shutterStops = [-2,-1,0,1,2];
-  shutterStops.forEach(stop => {
-    const s = shutter * Math.pow(2, stop);
-    const a = apertureFromShutterEV(s, ev);
-    const isOpt = stop === 0;
-    const aLabel = formatAperture(a);
-    const sLabel = formatShutter(s);
-    const warn = a < 1 ? ' ⚠ çok geniş' : a > 22 ? ' ⚠ kırınım' : '';
-    html += `<tr class="${isOpt?'optimal':''}">
-      <td>${sLabel}${isOpt?' ◀ seçili':''}</td>
-      <td>${aLabel}${warn}</td>
-    </tr>`;
-  });
-  document.getElementById('tvTable').innerHTML = html;
-}
-
-// ── Manuel MODE ──
-function calcManuel() {
-  if (currentEV === null) {
-    document.getElementById('manResult').innerHTML = '<span style="color:var(--text3)">Önce ölçüm yapın</span>';
-    return;
-  }
-
-  const aperture = parseFloat(document.getElementById('manAperture').value);
-  const shutterStr = document.getElementById('manShutter').value;
-  const shutter = shutterStr === '1s' ? 1 : 1 / parseInt(shutterStr);
-  const selectedEV = computeEV(aperture, shutter);
-  const diff = selectedEV - currentEV;
-  const diffStops = Math.round(diff * 2) / 2;
-
-  let status, color;
-  if (Math.abs(diffStops) < 0.25)      { status = '✓ Doğru poz'; color = 'var(--green)'; }
-  else if (diffStops > 0)              { status = `+${diffStops.toFixed(1)} stop AŞIK — diyaframı kapat veya perdeyi hızlandır`; color = 'var(--red)'; }
-  else                                 { status = `${diffStops.toFixed(1)} stop EKSİK — diyaframı aç veya perdeyi yavaşlat`; color = 'var(--blue)'; }
-
-  // Recommended ISOs
-  const recISOs = [25,50,100,200,400,800,1600,3200,6400].filter(iso => {
-    const evAdj = currentEV + Math.log2(iso/100) - Math.log2(currentISO/100);
-    const d = computeEV(aperture, shutter) - evAdj;
-    return Math.abs(d) < 0.4;
-  });
-
-  document.getElementById('manResult').innerHTML = `
-    <div style="font-size:15px;color:${color};margin-bottom:10px;letter-spacing:0.05em">${status}</div>
-    <div style="font-size:11px;color:var(--text3)">
-      Seçilen EV: <strong style="color:var(--text)">${selectedEV.toFixed(1)}</strong> &nbsp;|&nbsp;
-      Sahne EV: <strong style="color:var(--text)">${currentEV.toFixed(1)}</strong>
+<!-- ═══════ MANUEL ═══════ -->
+<div class="page" id="pg-manuel">
+  <div class="card">
+    <div class="card-label">Manuel Mod</div>
+    <div class="row2">
+      <div class="field">
+        <label>Diyafram</label>
+        <select id="manAp" onchange="calcManuel()">
+          <option value="1">f/1.0</option><option value="1.4">f/1.4</option>
+          <option value="2">f/2</option><option value="2.8">f/2.8</option>
+          <option value="4">f/4</option><option value="5.6" selected>f/5.6</option>
+          <option value="8">f/8</option><option value="11">f/11</option>
+          <option value="16">f/16</option><option value="22">f/22</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Perde Süresi</label>
+        <select id="manSh" onchange="calcManuel()">
+          <option value="2000">1/2000</option><option value="1000">1/1000</option>
+          <option value="500">1/500</option><option value="250">1/250</option>
+          <option value="125" selected>1/125</option><option value="60">1/60</option>
+          <option value="30">1/30</option><option value="15">1/15</option>
+          <option value="8">1/8</option><option value="4">1/4</option>
+          <option value="2">1/2</option><option value="1">1"</option>
+          <option value="0.5">2"</option><option value="0.25">4"</option>
+        </select>
+      </div>
     </div>
-    ${recISOs.length ? `<div style="font-size:11px;color:var(--text2);margin-top:8px">
-      Bu kombinasyon için uygun ISO: <strong style="color:var(--gold)">${recISOs.join(', ')}</strong>
-    </div>` : ''}
-  `;
+    <div id="manResult"><p class="small-note" style="text-align:center;padding:20px 0">Önce Giriş sekmesinden hesaplayın</p></div>
+  </div>
+</div>
+
+<!-- ═══════ ZONE ═══════ -->
+<div class="page" id="pg-zone">
+  <div class="card">
+    <div class="card-label">Zone System — Ansel Adams</div>
+    <div class="zone-strip" id="zoneStrip"></div>
+    <div class="zone-labels" id="zoneLabels"></div>
+    <div class="zone-info-box" id="zoneInfo">Giriş sekmesinden lux değeri girin.</div>
+    <div class="zone-strategy" id="zoneStrategy" style="margin-top:10px;display:none"></div>
+  </div>
+  <div class="card">
+    <div class="card-label">Zone Açıklamaları</div>
+    <table class="result-table" id="zoneTable"></table>
+  </div>
+</div>
+
+<!-- ═══════ REFERANS ═══════ -->
+<div class="page" id="pg-referans">
+
+  <!-- Güneş saati arc -->
+  <div class="card">
+    <div class="card-label">Günün Saatine Göre Doğal Işık</div>
+    <div class="tod-arc">
+      <svg class="tod-svg" viewBox="0 0 320 120" id="sunSvg"></svg>
+    </div>
+    <p class="small-note" style="text-align:center">Saat dilimine tıklayarak lux değerini otomatik gir</p>
+  </div>
+
+  <!-- Lux reference list -->
+  <div class="card">
+    <div class="card-label">Işık Kaynağı Referans Tablosu</div>
+    <div class="ref-chart" id="refChart"></div>
+  </div>
+
+  <!-- Sunny 16 -->
+  <div class="card">
+    <div class="card-label">Sunny 16 Kuralı</div>
+    <table class="result-table">
+      <tr><td>☀️ Tam güneş</td><td>f/16</td><td>1/ISO sn</td></tr>
+      <tr><td>🌤 Hafif bulut</td><td>f/11</td><td>1/ISO sn</td></tr>
+      <tr><td>⛅ Bulutlu</td><td>f/8</td><td>1/ISO sn</td></tr>
+      <tr><td>☁️ Kapalı</td><td>f/5.6</td><td>1/ISO sn</td></tr>
+      <tr><td>🌧 Yağmurlu/gölge</td><td>f/4</td><td>1/ISO sn</td></tr>
+    </table>
+    <p class="small-note">Örnek: ISO 400 → perde 1/400 ≈ 1/500 sn</p>
+  </div>
+
+</div><!-- /pg-referans -->
+
+</div><!-- /app -->
+
+<script>
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+let currentLux = null;
+let currentEV  = null;
+let currentISO = 400;
+let selAperture = 5.6;
+let selShutter  = 1/125;
+
+// ════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════
+const APERTURES = [1, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16, 22];
+const SHUTTERS  = [1/2000,1/1000,1/500,1/250,1/125,1/60,1/30,1/15,1/8,1/4,1/2,1,2,4,8,15,30];
+const SH_LABELS = ['1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1"','2"','4"','8"','15"','30"'];
+
+const ZONE_COLORS = ['#000','#181818','#303030','#484848','#606060','#808080','#9a9a9a','#b5b5b5','#cecece','#e6e6e6','#fff'];
+const ZONE_NAMES  = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X'];
+const ZONE_DESCS  = [
+  'Tam siyah — detay yok',
+  'Neredeyse siyah — çok az doku',
+  'Koyu gölge — az doku görülür',
+  'Gölge detayı — doku var',
+  'Koyu orta ton',
+  'Orta gri — 18% gri kart',
+  'Açık orta ton',
+  'Açık alan — doku var',
+  'Parlak — az doku',
+  'Neredeyse beyaz — doku yok',
+  'Tam beyaz — detay yok',
+];
+
+const REF_DATA = [
+  { icon:'🕯', name:'Mum ışığı',         sub:'1 mum, yakın mesafe',        lux:1,      color:'#8b4513' },
+  { icon:'🏠', name:'Loş oda',            sub:'Gece lambası, karanlık köşe', lux:10,     color:'#4a3020' },
+  { icon:'💡', name:'Normal iç mekan',    sub:'Ev aydınlatması, ofis',       lux:200,    color:'#a06030' },
+  { icon:'🏢', name:'Parlak ofis',        sub:'Floresan tavan aydınlatma',   lux:500,    color:'#c07840' },
+  { icon:'🌇', name:'Gün batımı/doğumu', sub:'Altın saat — ilk/son ışık',   lux:400,    color:'#d4600a' },
+  { icon:'🌆', name:'Alacakaranlık',      sub:'Gün batımından 30dk sonra',   lux:1000,   color:'#6040a0' },
+  { icon:'☁️', name:'Tam kapalı hava',   sub:'Yoğun bulut örtüsü',          lux:1000,   color:'#607080' },
+  { icon:'🌥', name:'Hafif bulutlu',      sub:'İnce bulut örtüsü',           lux:5000,   color:'#8090a0' },
+  { icon:'🌤', name:'Parçalı bulutlu',    sub:'Aralarda güneş görünüyor',    lux:20000,  color:'#90a0b0' },
+  { icon:'⛅', name:'Açık gölge',         sub:'Güneşli günde gölgeli alan',  lux:10000,  color:'#70a0c0' },
+  { icon:'🌞', name:'Sabah/öğleden sonra',sub:'Güneş 30-45° açıda',         lux:32000,  color:'#d4a030' },
+  { icon:'☀️', name:'Öğlen güneşi',      sub:'Saat 12, yaz, Türkiye',       lux:100000, color:'#d4c020' },
+  { icon:'🏖', name:'Kum/kar yansıması', sub:'Beyaz yüzeyden geri yansıma', lux:120000, color:'#c0d0e0' },
+];
+
+const TOD_DATA = [
+  { hour:5,  label:'05:00', lux:100,   icon:'🌅', color:'#c06020' },
+  { hour:6,  label:'06:00', lux:1000,  icon:'🌄', color:'#d07820' },
+  { hour:7,  label:'07:00', lux:5000,  icon:'🌤', color:'#d09020' },
+  { hour:8,  label:'08:00', lux:15000, icon:'⛅', color:'#d0a820' },
+  { hour:9,  label:'09:00', lux:32000, icon:'🌞', color:'#d0c020' },
+  { hour:10, label:'10:00', lux:64000, icon:'☀️', color:'#d0d020' },
+  { hour:11, label:'11:00', lux:85000, icon:'☀️', color:'#e0d020' },
+  { hour:12, label:'12:00', lux:100000,icon:'☀️', color:'#e8d820' },
+  { hour:13, label:'13:00', lux:100000,icon:'☀️', color:'#e8d820' },
+  { hour:14, label:'14:00', lux:80000, icon:'☀️', color:'#e0c820' },
+  { hour:15, label:'15:00', lux:60000, icon:'🌞', color:'#d0b820' },
+  { hour:16, label:'16:00', lux:30000, icon:'🌤', color:'#d0a020' },
+  { hour:17, label:'17:00', lux:10000, icon:'⛅', color:'#d08820' },
+  { hour:18, label:'18:00', lux:2000,  icon:'🌇', color:'#c06020' },
+  { hour:19, label:'19:00', lux:400,   icon:'🌆', color:'#904020' },
+  { hour:20, label:'20:00', lux:50,    icon:'🌃', color:'#402060' },
+];
+
+// ════════════════════════════════════════════════
+//  SAFELIGHT
+// ════════════════════════════════════════════════
+function toggleSafe() {
+  const safe = document.documentElement.getAttribute('data-mode') !== 'safe';
+  document.documentElement.setAttribute('data-mode', safe ? 'safe' : 'normal');
+  document.getElementById('safeTxt').textContent = safe ? 'Normal' : 'Safelight';
 }
 
-// ── ZONE SYSTEM ──
-function updateZone() {
-  if (currentEV === null) return;
-
-  // Zone V = middle grey = metered EV
-  // Each zone = 1 stop
-  const zoneV_EV = currentEV;
-
-  // Build zone strip
-  const strip = document.getElementById('zoneStrip');
-  const desc  = document.getElementById('zoneDesc');
-  strip.innerHTML = '';
-  desc.innerHTML  = '';
-
-  for (let z = 0; z <= 10; z++) {
-    const zoneEV = zoneV_EV + (z - 5);
-    const isActive = z === 5; // Zone V is always the metered zone
-
-    const cell = document.createElement('div');
-    cell.className = 'zone-cell' + (isActive ? ' active-zone' : '');
-    cell.style.background = ZONE_COLORS[z];
-    cell.style.color = z > 5 ? '#333' : '#ccc';
-    cell.textContent = ZONE_NAMES[z];
-    strip.appendChild(cell);
-
-    const dcell = document.createElement('div');
-    dcell.className = 'zone-desc-cell';
-    dcell.textContent = ZONE_DESCS[z];
-    desc.appendChild(dcell);
-  }
-
-  // Zone info
-  const highlights_ev = zoneV_EV + 3; // Zone VIII
-  const shadows_ev    = zoneV_EV - 3; // Zone II
-  const dynamic_range = 10; // typical film
-
-  document.getElementById('zoneInfo').innerHTML = `
-    <strong>Zone V (Orta Gri):</strong> EV ${zoneV_EV.toFixed(1)}<br>
-    <strong>Gölge Sınırı (Zone II):</strong> EV ${shadows_ev.toFixed(1)}<br>
-    <strong>Işık Sınırı (Zone VIII):</strong> EV ${highlights_ev.toFixed(1)}<br>
-    <strong>Dinamik Aralık:</strong> ~${dynamic_range} stop (analog film)
-  `;
-
-  // Strategy
-  let strategy = '';
-  if (currentEV >= 13) {
-    strategy = `Parlak sahne (EV ${currentEV.toFixed(1)}). <strong>N-1 banyo</strong> (geliştirme süresini %20 kıs) — yüksek notları koru. Diyaframı 1 stop kapatarak pozla.`;
-  } else if (currentEV <= 7) {
-    strategy = `Düşük ışık (EV ${currentEV.toFixed(1)}). <strong>N+1 banyo</strong> (geliştirme süresini %20 artır) — kontrastı aç. Geniş diyafram veya push banyo düşün.`;
-  } else {
-    strategy = `Normal ışık (EV ${currentEV.toFixed(1)}). <strong>Normal banyo</strong> (N). Zone V'e poz ver. ISO ${currentISO} ile ideal sonuç beklenir.`;
-  }
-
-  document.getElementById('zoneStrategy').innerHTML = strategy;
+// ════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════
+function switchTab(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pg-' + name).classList.add('active');
+  btn.classList.add('active');
 }
 
-// ═══════════════════════════════════════════════
+// ════════════════════════════════════════════════
+//  LUX → EV
+// ════════════════════════════════════════════════
+// EV100 = log2(Lux / 2.5)  — ISO 100, K=12.5 calibration constant
+function luxToEV(lux, iso) {
+  const ev100 = Math.log2(lux / 2.5);
+  // ISO compensation: each stop of ISO = 1 EV
+  return ev100 + Math.log2(iso / 100);
+}
+
+function onLuxChange() {
+  const v = parseFloat(document.getElementById('luxInput').value);
+  if (!isNaN(v) && v > 0) updateEVDisplay(v);
+  document.querySelectorAll('.lp').forEach(b => b.classList.remove('active'));
+}
+
+function setLux(val, btn) {
+  document.getElementById('luxInput').value = val;
+  document.querySelectorAll('.lp').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  updateEVDisplay(val);
+}
+
+function updateEVDisplay(lux) {
+  const ev = luxToEV(lux, currentISO);
+  currentLux = lux;
+  currentEV  = ev;
+
+  const evRounded = Math.round(ev * 10) / 10;
+  document.getElementById('evBig').textContent = evRounded.toFixed(1);
+
+  // Scale bar 0–20
+  const pct = Math.max(0, Math.min(100, (ev / 20) * 100));
+  document.getElementById('evScaleFill').style.width = pct + '%';
+
+  // Scene name
+  const scene = getScene(ev);
+  document.getElementById('evSceneName').textContent = scene.name;
+  document.getElementById('evSceneSub').textContent  = `EV ${evRounded.toFixed(1)} @ ISO ${currentISO}`;
+}
+
+function getScene(ev) {
+  const scenes = [
+    {min:-5,max:1, name:'Çok karanlık — mum, gece lambası'},
+    {min:1, max:3, name:'Loş iç mekan'},
+    {min:3, max:5, name:'İç mekan — normal aydınlatma'},
+    {min:5, max:7, name:'Parlak iç mekan veya alacakaranlık'},
+    {min:7, max:9, name:'Dışarıda gölge — kapalı hava'},
+    {min:9, max:11,name:'Açık gölge — güneşli gün'},
+    {min:11,max:13,name:'Güneşli gün — gölgeli yüzey'},
+    {min:13,max:15,name:'Tam güneş ışığı — sunny 16'},
+    {min:15,max:18,name:'Çok parlak — kar, kum, su yansıması'},
+  ];
+  return scenes.find(s => ev >= s.min && ev < s.max) || {name: ev < 0 ? 'Çok karanlık' : 'Çok parlak'};
+}
+
+// ════════════════════════════════════════════════
 //  ISO
-// ═══════════════════════════════════════════════
+// ════════════════════════════════════════════════
 function setISO(val, btn) {
   currentISO = val;
   document.querySelectorAll('.iso-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  if (currentEV !== null) updateAllDisplays();
+  if (currentLux) updateEVDisplay(currentLux);
 }
 
-function setMeterMode(mode, btn) {
-  meterMode = mode;
-  document.querySelectorAll('.meter-mode-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+// ════════════════════════════════════════════════
+//  CALCULATE — fills all tabs
+// ════════════════════════════════════════════════
+function calculate() {
+  if (!currentEV) { alert('Lux değeri girin'); return; }
+  buildAvMode();
+  buildTvMode();
+  calcManuel();
+  buildZone();
+  // Switch to Av tab
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pg-av').classList.add('active');
+  document.querySelectorAll('.tab')[1].classList.add('active');
 }
 
-// ═══════════════════════════════════════════════
-//  MODE SWITCHING
-// ═══════════════════════════════════════════════
-function switchMode(mode, btn) {
-  currentMode = mode;
-  document.querySelectorAll('.mode-page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('pg-' + mode).classList.add('active');
-  btn.classList.add('active');
+// ── Av MODE ──
+function buildAvMode() {
+  // Build aperture pill row
+  const row = document.getElementById('avApertureRow');
+  row.innerHTML = '';
+  APERTURES.forEach(f => {
+    const b = document.createElement('button');
+    b.className = 'stop-pill' + (f === selAperture ? ' active' : '');
+    b.textContent = 'f/' + (f < 10 ? f : Math.round(f));
+    b.onclick = () => {
+      selAperture = f;
+      document.querySelectorAll('#avApertureRow .stop-pill').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      buildAvTable(f);
+    };
+    row.appendChild(b);
+  });
+  buildAvTable(selAperture);
 }
 
-// ═══════════════════════════════════════════════
-//  ZONE STRIP INIT
-// ═══════════════════════════════════════════════
-function initZoneStrip() {
+function buildAvTable(aperture) {
+  const ev = currentEV;
+  // t = N² / 2^EV
+  const t = (aperture * aperture) / Math.pow(2, ev);
+
+  // Show ±3 stops of aperture
+  let html = '<table class="result-table"><tr style="border-bottom:1px solid var(--border)"><td style="color:var(--text3);font-size:9px;letter-spacing:0.2em">DİYAFRAM</td><td style="color:var(--text3);font-size:9px;letter-spacing:0.2em">PERDE SÜRESİ</td><td style="color:var(--text3);font-size:9px;letter-spacing:0.2em">NOT</td></tr>';
+  [-3,-2,-1,0,1,2,3].forEach(stop => {
+    const a = aperture * Math.pow(Math.sqrt(2), stop);
+    const sh = (a*a) / Math.pow(2, ev);
+    const isOpt = stop === 0;
+    const aStr = fmtAp(a);
+    const sStr = fmtSh(sh);
+    let warn = '', cls = isOpt ? 'optimal' : '';
+    if (sh < 1/2000)     { warn = '⚠ çok hızlı'; cls = 'warn'; }
+    else if (sh > 1)     { warn = '📷 tripod'; }
+    else if (sh < 1/60)  { warn = '⚠ titreme'; }
+    else                 { warn = isOpt ? '✓ seçili' : ''; }
+    html += `<tr class="${cls}"><td>${aStr}</td><td>${sStr}</td><td>${warn}</td></tr>`;
+  });
+  html += '</table>';
+  document.getElementById('avResult').innerHTML = html;
+}
+
+// ── Tv MODE ──
+function buildTvMode() {
+  const row = document.getElementById('tvShutterRow');
+  row.innerHTML = '';
+  SHUTTERS.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'stop-pill' + (Math.abs(s - selShutter) < 0.001 ? ' active' : '');
+    b.textContent = SH_LABELS[i];
+    b.onclick = () => {
+      selShutter = s;
+      document.querySelectorAll('#tvShutterRow .stop-pill').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      buildTvTable(s);
+    };
+    row.appendChild(b);
+  });
+  buildTvTable(selShutter);
+}
+
+function buildTvTable(shutter) {
+  const ev = currentEV;
+  // N = sqrt(2^EV * t)
+  let html = '<table class="result-table"><tr style="border-bottom:1px solid var(--border)"><td style="color:var(--text3);font-size:9px;letter-spacing:0.2em">PERDE</td><td style="color:var(--text3);font-size:9px;letter-spacing:0.2em">DİYAFRAM</td><td style="color:var(--text3);font-size:9px;letter-spacing:0.2em">NOT</td></tr>';
+  [-3,-2,-1,0,1,2,3].forEach(stop => {
+    const s = shutter * Math.pow(2, stop);
+    const a = Math.sqrt(Math.pow(2, ev) * s);
+    const isOpt = stop === 0;
+    const sStr = fmtSh(s);
+    const aStr = fmtAp(a);
+    let warn = '', cls = isOpt ? 'optimal' : '';
+    if (a < 1)    { warn = '⚠ lens sınırı'; cls = 'warn'; }
+    else if (a > 22) { warn = '⚠ kırınım'; cls = 'warn'; }
+    else if (isOpt)  { warn = '✓ seçili'; }
+    html += `<tr class="${cls}"><td>${sStr}</td><td>${aStr}</td><td>${warn}</td></tr>`;
+  });
+  html += '</table>';
+  document.getElementById('tvResult').innerHTML = html;
+}
+
+// ── MANUEL MODE ──
+function calcManuel() {
+  const ap = parseFloat(document.getElementById('manAp').value);
+  const shVal = parseFloat(document.getElementById('manSh').value);
+  const sh = shVal >= 1 ? 1/shVal : Math.abs(shVal);
+
+  if (!currentEV) return;
+
+  const evSelected = Math.log2((ap*ap) / sh);
+  const diff = evSelected - currentEV;
+  const diffStops = Math.round(diff * 4) / 4;
+
+  let cls, icon, msg;
+  if (Math.abs(diffStops) < 0.25) {
+    cls='ok'; icon='✓'; msg=`Doğru poz — Mükemmel!`;
+  } else if (diffStops > 0) {
+    cls='over'; icon='↑'; msg=`+${diffStops.toFixed(2)} stop AŞIK poz`;
+  } else {
+    cls='under'; icon='↓'; msg=`${diffStops.toFixed(2)} stop EKSİK poz`;
+  }
+
+  // Best ISO suggestion
+  const targetEV = Math.log2((ap*ap)/sh);
+  const idealISO = currentISO * Math.pow(2, targetEV - currentEV);
+  const isoOptions = [25,50,100,200,400,800,1600,3200,6400];
+  const closestISO = isoOptions.reduce((a,b) => Math.abs(b-idealISO) < Math.abs(a-idealISO) ? b : a);
+
+  // Reciprocity suggestions
+  const recip = [];
+  APERTURES.forEach(a => {
+    const s = (a*a) / Math.pow(2, currentEV);
+    if (s >= 1/2000 && s <= 30) recip.push({a, s});
+  });
+
+  document.getElementById('manResult').innerHTML = `
+    <div class="man-result ${cls}">
+      <div style="font-size:28px;margin-bottom:8px">${icon}</div>
+      <div style="font-size:16px;letter-spacing:0.05em;margin-bottom:8px">${msg}</div>
+      <div style="font-size:11px;color:var(--text3)">
+        Seçilen EV: <strong style="color:var(--text)">${evSelected.toFixed(2)}</strong> &nbsp;|&nbsp;
+        Sahne EV: <strong style="color:var(--text)">${currentEV.toFixed(2)}</strong>
+      </div>
+      ${Math.abs(diffStops) > 0.25 ? `<div style="font-size:11px;color:var(--text2);margin-top:8px">
+        Önerilen ISO: <strong style="color:var(--gold)">${closestISO}</strong>
+      </div>` : ''}
+    </div>
+    <div style="margin-top:12px">
+      <div class="card-label">Bu EV için tüm eşdeğer kombinasyonlar</div>
+      <table class="result-table">
+        ${recip.slice(0,7).map(r => `<tr ${Math.abs(r.a-ap)<0.1?'class="optimal"':''}><td>${fmtAp(r.a)}</td><td>${fmtSh(r.s)}</td><td>${r.s < 1/60 ? '⚠ titreme' : r.s > 1 ? '📷 tripod' : '✓'}</td></tr>`).join('')}
+      </table>
+    </div>`;
+}
+
+// ── ZONE SYSTEM ──
+function buildZone() {
   const strip = document.getElementById('zoneStrip');
-  const desc  = document.getElementById('zoneDesc');
-  strip.innerHTML = '';
-  desc.innerHTML  = '';
+  const lbls  = document.getElementById('zoneLabels');
+  strip.innerHTML = ''; lbls.innerHTML = '';
+
+  // Zone V = metered EV
   for (let z = 0; z <= 10; z++) {
     const cell = document.createElement('div');
-    cell.className = 'zone-cell';
+    cell.className = 'zone-cell' + (z === 5 ? ' current' : '');
     cell.style.background = ZONE_COLORS[z];
     cell.style.color = z > 5 ? '#444' : '#bbb';
     cell.textContent = ZONE_NAMES[z];
     strip.appendChild(cell);
 
-    const dc = document.createElement('div');
-    dc.className = 'zone-desc-cell';
-    dc.textContent = ZONE_DESCS[z];
-    desc.appendChild(dc);
+    const lbl = document.createElement('div');
+    lbl.className = 'zone-lbl';
+    lbl.textContent = ZONE_NAMES[z];
+    lbls.appendChild(lbl);
   }
+
+  const ev = currentEV;
+  const zoneV_EV = ev;
+  document.getElementById('zoneInfo').innerHTML = `
+    <strong>Zone V (Orta Gri / 18% gri kart):</strong> EV ${zoneV_EV.toFixed(1)}<br>
+    <strong>Zone II (Derin gölge sınırı):</strong> EV ${(zoneV_EV-3).toFixed(1)}<br>
+    <strong>Zone VIII (Parlak alan sınırı):</strong> EV ${(zoneV_EV+3).toFixed(1)}<br>
+    <strong>Kullanılabilir dinamik aralık:</strong> ~10 stop (analog film)
+  `;
+
+  let strat;
+  if (ev >= 14) {
+    strat = `<strong>Parlak sahne (EV ${ev.toFixed(1)})</strong><br>
+    • <strong>N-1 banyo</strong> önerisi — geliştirme süresini %20 kısalt<br>
+    • Işıklı alanlar Zone VIII-IX'u dolduruyor<br>
+    • Diyaframı 1 stop kısarak Zone VI'ya poz ver → highlights korunur`;
+  } else if (ev <= 8) {
+    strat = `<strong>Düşük ışık (EV ${ev.toFixed(1)})</strong><br>
+    • <strong>N+1 banyo</strong> önerisi — geliştirme süresini %20 artır<br>
+    • Gölgeler Zone II-III'te — kontrastı artırmak için push banyo<br>
+    • HP5 veya Tri-X push 1600'e çekilebilir`;
+  } else {
+    strat = `<strong>Normal ışık (EV ${ev.toFixed(1)})</strong><br>
+    • <strong>Normal (N) banyo</strong> — standart geliştirme süresi<br>
+    • Zone III-VII arası rahat çalışıyor<br>
+    • ISO ${currentISO} ile ideal sonuç beklenir`;
+  }
+  const zs = document.getElementById('zoneStrategy');
+  zs.innerHTML = strat;
+  zs.style.display = 'block';
+
+  // Zone table
+  let tbl = '';
+  ZONE_NAMES.forEach((name, i) => {
+    const zoneEV = (zoneV_EV - 5 + i).toFixed(1);
+    tbl += `<tr>
+      <td style="display:flex;align-items:center;gap:6px">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:2px;background:${ZONE_COLORS[i]};border:1px solid #444;flex-shrink:0"></span>
+        Zone ${name}
+      </td>
+      <td>EV ${zoneEV}</td>
+      <td>${ZONE_DESCS[i]}</td>
+    </tr>`;
+  });
+  document.getElementById('zoneTable').innerHTML = tbl;
 }
 
-initZoneStrip();
+// ════════════════════════════════════════════════
+//  FORMAT HELPERS
+// ════════════════════════════════════════════════
+function fmtAp(f) {
+  if (f < 10) return 'f/' + parseFloat(f.toFixed(1));
+  return 'f/' + Math.round(f);
+}
 
-// Init slider labels
-document.getElementById('avAperture').dispatchEvent(new Event('input'));
-document.getElementById('tvShutter').dispatchEvent(new Event('input'));
+function fmtSh(t) {
+  if (t >= 1) {
+    if (t >= 10) return Math.round(t) + '"';
+    return t.toFixed(1) + '"';
+  }
+  const d = Math.round(1/t);
+  // Round to standard values
+  const std = [2000,1000,500,250,125,60,30,15,8,4,2];
+  const closest = std.reduce((a,b) => Math.abs(b-d) < Math.abs(a-d) ? b : a);
+  return '1/' + closest;
+}
+
+// ════════════════════════════════════════════════
+//  REFERENCE CHART
+// ════════════════════════════════════════════════
+function buildRefChart() {
+  const chart = document.getElementById('refChart');
+  const maxLux = 120000;
+
+  REF_DATA.forEach(item => {
+    const ev = luxToEV(item.lux, 100).toFixed(1);
+    const pct = Math.min(100, (Math.log10(item.lux) / Math.log10(maxLux)) * 100);
+
+    const div = document.createElement('div');
+    div.className = 'ref-item';
+    div.innerHTML = `
+      <div class="ref-bar" style="width:${pct}%;background:${item.color}"></div>
+      <div class="ref-icon">${item.icon}</div>
+      <div class="ref-info">
+        <div class="ref-name">${item.name}</div>
+        <div class="ref-sub">${item.sub}</div>
+      </div>
+      <div class="ref-vals">
+        <div class="ref-lux">${item.lux >= 1000 ? (item.lux/1000).toFixed(0)+'K' : item.lux}</div>
+        <div class="ref-ev">EV ${ev}</div>
+      </div>`;
+
+    div.onclick = () => {
+      document.querySelectorAll('.ref-item').forEach(r => r.classList.remove('highlight'));
+      div.classList.add('highlight');
+      setLux(item.lux, null);
+      // switch to input tab
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('pg-input').classList.add('active');
+      document.querySelectorAll('.tab')[0].classList.add('active');
+    };
+    chart.appendChild(div);
+  });
+}
+
+// ════════════════════════════════════════════════
+//  SUN ARC SVG
+// ════════════════════════════════════════════════
+function buildSunArc() {
+  const svg = document.getElementById('sunSvg');
+  const W = 320, H = 120;
+  const cx = W/2, cy = H + 10;
+  const R = H + 20;
+
+  // Sky gradient background
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%"   stop-color="#1a0a30"/>
+        <stop offset="15%"  stop-color="#c05820"/>
+        <stop offset="30%"  stop-color="#d0a020"/>
+        <stop offset="50%"  stop-color="#a0c8e8"/>
+        <stop offset="70%"  stop-color="#d0a020"/>
+        <stop offset="85%"  stop-color="#c05820"/>
+        <stop offset="100%" stop-color="#1a0a30"/>
+      </linearGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#skyGrad)" rx="8"/>
+    <rect y="${H-16}" width="${W}" height="16" fill="#2a4a1a" rx="0"/>
+  `;
+
+  // Draw arc path
+  const startAngle = Math.PI;
+  const endAngle = 0;
+  const steps = TOD_DATA.length;
+
+  // Sun positions along arc
+  TOD_DATA.forEach((tod, i) => {
+    const progress = i / (steps - 1);
+    const angle = startAngle + (endAngle - startAngle) * progress;
+    const x = cx + R * Math.cos(angle);
+    const y = cy + R * Math.sin(angle);
+
+    // Only show if above ground
+    if (y > H - 10) return;
+
+    // Sun brightness based on lux
+    const brightness = Math.min(1, Math.log10(tod.lux+1) / 5);
+    const r = 3 + brightness * 8;
+    const opacity = 0.4 + brightness * 0.6;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('cursor','pointer');
+    g.onclick = () => {
+      setLux(tod.lux, null);
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('pg-input').classList.add('active');
+      document.querySelectorAll('.tab')[0].classList.add('active');
+    };
+
+    // Glow
+    if (brightness > 0.6) {
+      const glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      glow.setAttribute('cx', x); glow.setAttribute('cy', y);
+      glow.setAttribute('r', r + 6);
+      glow.setAttribute('fill', tod.color);
+      glow.setAttribute('opacity', 0.2);
+      g.appendChild(glow);
+    }
+
+    // Sun circle
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', x); circle.setAttribute('cy', y);
+    circle.setAttribute('r', r);
+    circle.setAttribute('fill', tod.color);
+    circle.setAttribute('opacity', opacity);
+    g.appendChild(circle);
+
+    // Label (every 2nd)
+    if (i % 2 === 0 && y < H - 20) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+      text.setAttribute('x', x);
+      text.setAttribute('y', Math.min(y - r - 4, H - 22));
+      text.setAttribute('text-anchor','middle');
+      text.setAttribute('font-size','8');
+      text.setAttribute('fill','rgba(255,255,255,0.7)');
+      text.setAttribute('font-family','DM Mono,monospace');
+      text.textContent = tod.label;
+      g.appendChild(text);
+    }
+
+    svg.appendChild(g);
+  });
+
+  // Horizon line
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',0); line.setAttribute('y1', H-16);
+  line.setAttribute('x2',W); line.setAttribute('y2', H-16);
+  line.setAttribute('stroke','rgba(255,255,255,0.15)');
+  line.setAttribute('stroke-width','1');
+  svg.appendChild(line);
+
+  // "Tıkla" hint
+  const hint = document.createElementNS('http://www.w3.org/2000/svg','text');
+  hint.setAttribute('x', W/2); hint.setAttribute('y', H - 3);
+  hint.setAttribute('text-anchor','middle');
+  hint.setAttribute('font-size','9');
+  hint.setAttribute('fill','rgba(255,255,255,0.4)');
+  hint.setAttribute('font-family','DM Mono,monospace');
+  hint.textContent = '← güneş pozisyonuna tıkla → lux otomatik girer';
+  svg.appendChild(hint);
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+buildRefChart();
+buildSunArc();
+
+// Init Av/Tv pill rows with placeholder
+const avRow = document.getElementById('avApertureRow');
+APERTURES.forEach(f => {
+  const b = document.createElement('button');
+  b.className = 'stop-pill' + (f === selAperture ? ' active' : '');
+  b.textContent = 'f/' + (f < 10 ? f : Math.round(f));
+  b.onclick = () => {
+    selAperture = f;
+    document.querySelectorAll('#avApertureRow .stop-pill').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    if (currentEV) buildAvTable(f);
+  };
+  avRow.appendChild(b);
+});
+
+const tvRow = document.getElementById('tvShutterRow');
+SHUTTERS.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'stop-pill' + (Math.abs(s - selShutter) < 0.001 ? ' active' : '');
+  b.textContent = SH_LABELS[i];
+  b.onclick = () => {
+    selShutter = s;
+    document.querySelectorAll('#tvShutterRow .stop-pill').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    if (currentEV) buildTvTable(s);
+  };
+  tvRow.appendChild(b);
+});
+
+// Init zone strip empty
+const strip = document.getElementById('zoneStrip');
+const lbls = document.getElementById('zoneLabels');
+ZONE_NAMES.forEach((name, i) => {
+  const c = document.createElement('div');
+  c.className = 'zone-cell';
+  c.style.background = ZONE_COLORS[i];
+  c.style.color = i > 5 ? '#444' : '#bbb';
+  c.textContent = name;
+  strip.appendChild(c);
+  const l = document.createElement('div');
+  l.className = 'zone-lbl';
+  l.textContent = name;
+  lbls.appendChild(l);
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    const swPath = location.pathname.replace(/\/[^/]*$/, '/meter-sw.js');
+    navigator.serviceWorker.register(swPath).catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
